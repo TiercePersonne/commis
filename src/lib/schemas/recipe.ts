@@ -21,6 +21,10 @@ export type Recipe = {
   ingredients: RecipeItem[];
   steps: RecipeItem[];
   notes: string;
+  source_url?: string | null;
+  source_type?: 'web' | 'reel' | 'manual';
+  image_url?: string | null;
+  confidence?: 'complete' | 'partial' | null;
   created_at: string;
   updated_at: string;
 };

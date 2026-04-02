@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { ExternalLink } from 'lucide-react';
 import { getRecipe } from '@/app/actions/recipes';
 import { getRecipeTags } from '@/app/actions/tags';
 import { DeleteButton } from './delete-button';
@@ -38,13 +39,26 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
             <h1 className="text-[32px] font-serif font-bold text-[var(--color-text-primary)] mb-2 leading-tight">
               {recipe.title}
             </h1>
-            <p className="text-[13px] text-[var(--color-text-muted)] mb-4">
-              Créée le {new Date(recipe.created_at).toLocaleDateString('fr-FR', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric'
-              })}
-            </p>
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <p className="text-[13px] text-[var(--color-text-muted)]">
+                Créée le {new Date(recipe.created_at).toLocaleDateString('fr-FR', {
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric'
+                })}
+              </p>
+              {recipe.source_url && (
+                <a
+                  href={recipe.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[13px] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors"
+                >
+                  <ExternalLink size={13} />
+                  Voir la source originale
+                </a>
+              )}
+            </div>
             {tags && tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-6">
                 {tags.map((tag) => (

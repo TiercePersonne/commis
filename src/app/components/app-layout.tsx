@@ -15,6 +15,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { href: '/', label: 'Collection' },
+    { href: '/import', label: 'Import' },
     { href: '/planner', label: 'Planning' },
     { href: '/profile', label: 'Profil' },
   ];

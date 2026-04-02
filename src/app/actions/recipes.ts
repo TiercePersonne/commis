@@ -4,6 +4,9 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createRecipeSchema, type Recipe } from '@/lib/schemas/recipe';
+import type { ExtractedRecipe } from '@/lib/schemas/import-job';
+
+type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 
 export async function createRecipe(
   prevState: { error: string } | null,
@@ -243,4 +246,44 @@ export async function deleteRecipe(id: string) {
 
   revalidatePath('/');
   redirect('/');
+}
+
+export async function saveImportedRecipe(
+  recipe: ExtractedRecipe,
+  tagIds: string[]
+): Promise<ActionResult<{ id: string }>> {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Non authentifié' };
+
+  const { data, error } = await supabase
+    .from('recipes')
+    .insert({
+      user_id: user.id,
+      title: recipe.title,
+      ingredients: recipe.ingredients,
+      steps: recipe.steps,
+      source_url: recipe.source_url ?? null,
+      source_type: 'web',
+      image_url: recipe.image_url ?? null,
+      confidence: recipe.confidence,
+    })
+    .select('id')
+    .single();
+
+  if (error || !data) {
+    return { data: null, error: 'Erreur lors de la sauvegarde de la recette' };
+  }
+
+  if (tagIds.length > 0) {
+    const tagInserts = tagIds.map((tagId) => ({
+      recipe_id: data.id,
+      tag_id: tagId,
+    }));
+    await supabase.from('recipe_tags').insert(tagInserts);
+  }
+
+  revalidatePath('/');
+  return { data: { id: data.id }, error: null };
 }
