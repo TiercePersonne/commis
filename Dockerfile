@@ -1,16 +1,4 @@
-# Stage 1 : build Next.js
-FROM node:20-alpine AS builder
-
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm ci
-
-COPY . .
-RUN npm run build
-
-# Stage 2 : image de production
-FROM node:20-alpine AS runner
+FROM node:20-alpine
 
 WORKDIR /app
 
@@ -20,24 +8,30 @@ RUN apk add --no-cache python3 py3-pip ffmpeg
 # Créer un symlink python → python3
 RUN ln -sf /usr/bin/python3 /usr/bin/python
 
-# Installer yt-dlp dans un virtualenv et exposer le binaire
+# Installer yt-dlp dans un virtualenv
 RUN python3 -m venv /opt/yt-dlp-env \
-    && /opt/yt-dlp-env/bin/pip install --no-cache-dir yt-dlp \
-    && ln -sf /opt/yt-dlp-env/bin/yt-dlp /usr/local/bin/yt-dlp
+    && /opt/yt-dlp-env/bin/pip install --no-cache-dir yt-dlp
 
-# Copier les fichiers Next.js buildés
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+# Créer un wrapper script yt-dlp qui utilise le bon Python
+RUN printf '#!/bin/sh\nexec /opt/yt-dlp-env/bin/python /opt/yt-dlp-env/bin/yt-dlp "$@"\n' \
+    > /usr/local/bin/yt-dlp \
+    && chmod +x /usr/local/bin/yt-dlp
+
+# Vérifier que yt-dlp fonctionne
+RUN yt-dlp --version
+
+# Installer les dépendances Node.js
+COPY package*.json ./
+RUN npm ci
+
+# Builder Next.js
+COPY . .
+RUN npm run build
 
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-ENV PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
-
-# Vérifier que yt-dlp est bien installé
-RUN yt-dlp --version
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+CMD ["node", ".next/standalone/server.js"]
