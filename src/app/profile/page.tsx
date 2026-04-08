@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { AppLayout } from '@/app/components/app-layout';
 import { exportUserData, deleteAccount, saveInstagramCookies, getInstagramCookies } from '@/app/actions/profile';
+import { logout } from '@/app/login/actions';
 
 export default function ProfilePage() {
   const [exporting, setExporting] = useState(false);
@@ -86,9 +87,19 @@ export default function ProfilePage() {
     <AppLayout>
       <div className="px-10 pb-10">
         <div className="max-w-2xl mx-auto pt-8">
-          <h1 className="text-[28px] font-serif font-bold text-[var(--color-text-primary)] mb-2">
-            Mon Profil
-          </h1>
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-[28px] font-serif font-bold text-[var(--color-text-primary)]">
+              Mon Profil
+            </h1>
+            <form action={logout}>
+              <button
+                type="submit"
+                className="text-[13px] text-[var(--color-text-muted)] hover:text-red-600 transition-colors"
+              >
+                Se déconnecter
+              </button>
+            </form>
+          </div>
           <p className="text-[14px] text-[var(--color-text-muted)] mb-8">
             Gérer ton compte et tes données.
           </p>
