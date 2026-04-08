@@ -44,3 +44,6 @@ next-env.d.ts
 instagram-cookies.txt
 *cookies*.txt
 *.exe
+
+# Scripts de dev
+scripts/
