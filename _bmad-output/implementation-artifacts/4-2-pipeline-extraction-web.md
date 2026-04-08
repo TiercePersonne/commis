@@ -269,11 +269,34 @@ Accès dans le code : `process.env.OPENAI_API_KEY` — côté serveur uniquement
 
 ### Agent Model Used
 
-_à remplir_
+Cascade (Windsurf)
 
 ### Debug Log References
 
 ### Completion Notes List
+
+#### ⚠️ Divergence : Fire-and-forget non implémenté
+
+L'AC#3 prescrit un pipeline fire-and-forget où `startImport` retourne le `jobId` immédiatement et le pipeline s'exécute en arrière-plan. **Ce pattern n'a pas été implémenté.**
+
+**Implémentation réelle :** `startImport` awaite `extractRecipeFromUrl()` de bout en bout et retourne directement `{ recipe: ExtractedRecipe }` dans sa réponse — pas seulement un `jobId`. Le pipeline est synchrone dans la Server Action.
+
+**Pourquoi :** `unstable_after()` de Next.js n'était pas disponible de façon fiable, et la route API dédiée `/api/import/[jobId]` ajoutait de la complexité pour un usage mono-utilisateur.
+
+**Conséquences :**
+- `getImportStatus` et `getImportResult` existent et fonctionnent mais le client ne s'en sert pas pour le flow principal — la recette arrive directement dans la réponse de `startImport`.
+- Le polling `setInterval` dans `import/page.tsx` est présent mais court-circuité : dès que `startImport` répond, on passe directement en état `'preview'`.
+- **Risque production :** timeout Vercel 10s (NFR3) si Jina + Gemini dépassent ce délai sur des sites lents ou protégés (ex: Cloudflare). Testé OK sur la majorité des sites, mais lacuisinedebernard échoue systématiquement (Cloudflare bloque Jina).
+
+**Solution future si nécessaire :** implémenter `unstable_after` (Next.js 15+) ou migrer vers une route API `/api/import/process` appelée sans `await` via `fetch(..., { signal: AbortSignal.timeout(500) })`.
+
+#### Note : LLM utilisé — Gemini au lieu d'OpenAI
+
+Le Dev Note mentionnait `OPENAI_API_KEY` et `gpt-4o-mini`. L'implémentation réelle utilise `@google/generative-ai` avec `gemini-2.5-flash` via `GEMINI_API_KEY`. Décision validée par l'utilisateur (abonnement Gemini actif).
+
+#### Ajout hors scope : `startImportFromText`
+
+Une action `startImportFromText(text: string)` a été ajoutée dans `actions/import.ts` pour permettre l'import par collage de texte brut (onglet "Coller du texte" dans l'UI). Non prévu dans cette story mais cohérent avec le pipeline LLM existant.
 
 ### File List
 
@@ -282,6 +305,6 @@ _à remplir_
 - `src/lib/schemas/recipe.ts` — modifié (champs source_url, source_type, image_url, confidence)
 - `src/lib/utils/import-web.ts` — créé
 - `src/lib/utils/import-web.test.ts` — créé
-- `src/app/actions/import.ts` — créé
-- `src/app/import/page.tsx` — modifié (connexion startImport)
+- `src/app/actions/import.ts` — créé (+ `startImportFromText` hors scope)
+- `src/app/import/page.tsx` — modifié (connexion startImport, flow direct sans polling réel)
 - `src/app/components/import-source-selector.tsx` — modifié (gestion jobId)

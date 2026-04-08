@@ -236,17 +236,45 @@ const handleFieldChange = (updates: Partial<ExtractedRecipe>) => {
 
 ### Agent Model Used
 
-_à remplir_
+Cascade (Windsurf)
 
 ### Debug Log References
 
 ### Completion Notes List
+
+#### ⚠️ Divergence : Images stockées dans Supabase Storage
+
+L'architecture (`architecture.md`, Cross-Cutting Concerns) prescrit : *"Images : stocker uniquement l'URL source (pas de téléchargement/stockage) — fallback emoji/initiales si l'URL devient inaccessible."*
+
+**Implémentation réelle :** Un bucket Supabase Storage `recipe-images` a été créé (migration `007_recipe_images_bucket.sql`). Lors d'une édition manuelle de recette, si l'utilisateur colle une URL d'image accessible (HTTP 200 + `Content-Type: image/*`), l'image est copiée dans Storage et l'URL publique Supabase remplace l'URL d'origine en base.
+
+**Pourquoi :** Certains sites (ex: `lacuisinedebernard.com`) bloquent toutes les requêtes serveur (403 IP-based), rendant l'URL d'origine inutilisable. Le Storage garantit l'affichage durable même si le site source coupe l'accès.
+
+**Comportement réel de `saveImportedRecipe` :** L'`image_url` extraite est sauvegardée telle quelle en DB (pas d'upload automatique à l'import). L'upload n'intervient que si l'utilisateur édite manuellement l'`image_url` via le formulaire de modification (`updateRecipe`).
+
+**Composants ajoutés hors scope initial :**
+- `src/lib/utils/image.ts` — helpers `getImageSrc()` et `getImageProxySrc()`
+- `src/app/components/recipe-image.tsx` — Client Component avec fallback proxy deux niveaux (URL directe → proxy → icône 🍽️)
+- `src/app/api/image-proxy/route.ts` — proxy serveur pour contourner l'hotlink protection
+- `supabase/migrations/007_recipe_images_bucket.sql` — bucket `recipe-images` public
+
+**Champ `image_url` éditable dans le formulaire de modification :**
+Le formulaire `src/app/recipes/[id]/edit/page.tsx` a été enrichi d'un champ `image_url` avec aperçu live, permettant à l'utilisateur de coller manuellement une URL d'image valide (ex: depuis le CDN d'un site). Ce champ n'était pas prévu dans la story 1.4 (Modifier une recette).
+
+#### Note : Migration `006_recipes_import_fields.sql`
+
+Les champs `source_url`, `source_type`, `image_url`, `confidence` ont été ajoutés à la table `recipes` via une migration dédiée `006_recipes_import_fields.sql`, séparément de la création initiale de la table.
 
 ### File List
 
 - `src/lib/utils/draft.ts` — créé
 - `src/lib/utils/draft.test.ts` — créé
 - `src/app/components/confidence-indicator.tsx` — créé
-- `src/app/components/recipe-preview.tsx` — créé
+- `src/app/components/recipe-preview.tsx` — créé (inclut champ image_url avec aperçu live)
 - `src/app/import/page.tsx` — modifié (Client Component, polling, états, skeleton, draft banner)
-- `src/app/actions/recipes.ts` — modifié (ajout `saveImportedRecipe`)
+- `src/app/actions/recipes.ts` — modifié (ajout `saveImportedRecipe`, champ `image_url` dans `updateRecipe`)
+- `src/lib/utils/image.ts` — créé (hors scope, helpers image)
+- `src/app/components/recipe-image.tsx` — créé (hors scope, fallback proxy)
+- `src/app/api/image-proxy/route.ts` — créé (hors scope, proxy anti-hotlink)
+- `supabase/migrations/006_recipes_import_fields.sql` — créé
+- `supabase/migrations/007_recipe_images_bucket.sql` — créé (hors scope, divergence architecture)

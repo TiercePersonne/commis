@@ -1,0 +1,9 @@
+.git
+.next
+node_modules
+.env*
+instagram-cookies.txt
+*.md
+.windsurf
+_bmad
+_bmad-output

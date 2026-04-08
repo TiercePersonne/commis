@@ -21,6 +21,7 @@ export default function EditRecipePage({
   const [steps, setSteps] = useState<RecipeItem[]>([{ text: '', order: 0 }]);
   const [title, setTitle] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [imageUrl, setImageUrl] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -32,6 +33,7 @@ export default function EditRecipePage({
           setTitle(recipe.title);
           setIngredients(recipe.ingredients.length > 0 ? recipe.ingredients : [{ text: '', order: 0 }]);
           setSteps(recipe.steps.length > 0 ? recipe.steps : [{ text: '', order: 0 }]);
+          setImageUrl(recipe.image_url ?? '');
           
           const { tags } = await getRecipeTags(id);
           if (tags) {
@@ -196,6 +198,30 @@ export default function EditRecipePage({
               ))}
             </div>
             <input type="hidden" name="steps" value={JSON.stringify(steps)} />
+          </div>
+
+          <div>
+            <label htmlFor="image_url" className="block text-lg font-medium text-[var(--color-text-primary)] mb-2">
+              Image
+            </label>
+            <input
+              type="url"
+              id="image_url"
+              name="image_url"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="https://..."
+              className="w-full px-4 py-3 border border-[var(--color-border)] rounded-xl bg-[var(--color-bg-card)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-4 focus:ring-[rgba(196,112,75,0.12)]"
+              disabled={isPending}
+            />
+            {imageUrl && (
+              <img
+                src={imageUrl}
+                alt="Aperçu"
+                className="mt-3 w-full h-40 object-cover rounded-xl border border-[var(--color-border)]"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+              />
+            )}
           </div>
 
           <div>

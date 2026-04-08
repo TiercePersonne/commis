@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractFromJsonLd, extractFromHtml } from './import-web';
+import { extractFromJsonLd, extractFromHtml, normalizeImageUrl, isImageUrl, extractImageFromMarkdown } from './import-web';
 
 const RECIPE_JSONLD_HTML = `
 <html><head>
@@ -95,5 +95,85 @@ describe('extractFromHtml', () => {
   it('retourne null si pas de listes', () => {
     const html = `<html><body><h1>Titre seul</h1></body></html>`;
     expect(extractFromHtml(html)).toBeNull();
+  });
+});
+
+describe('normalizeImageUrl', () => {
+  const source = 'https://www.papillesetpupilles.fr/recette/gateau/';
+
+  it('retourne une URL absolue valide telle quelle', () => {
+    expect(normalizeImageUrl('https://cdn.example.com/img.jpg', source)).toBe('https://cdn.example.com/img.jpg');
+  });
+
+  it('résout une URL relative en URL absolue', () => {
+    expect(normalizeImageUrl('/images/gateau.jpg', source)).toBe('https://www.papillesetpupilles.fr/images/gateau.jpg');
+  });
+
+  it('retourne null pour une URL null', () => {
+    expect(normalizeImageUrl(null, source)).toBeNull();
+  });
+
+  it('retourne null pour un protocole non-http', () => {
+    expect(normalizeImageUrl('data:image/png;base64,abc', source)).toBeNull();
+  });
+
+  it('retourne null pour un protocole ftp', () => {
+    expect(normalizeImageUrl('ftp://example.com/image.jpg', source)).toBeNull();
+  });
+});
+
+describe('isImageUrl', () => {
+  it('reconnaît un .jpg', () => {
+    expect(isImageUrl('https://cdn.example.com/photo.jpg')).toBe(true);
+  });
+
+  it('reconnaît un .jpeg avec query string', () => {
+    expect(isImageUrl('https://cdn.example.com/photo.jpeg?v=2')).toBe(true);
+  });
+
+  it('reconnaît un .webp', () => {
+    expect(isImageUrl('https://cdn.example.com/photo.webp')).toBe(true);
+  });
+
+  it('reconnaît un .png', () => {
+    expect(isImageUrl('https://cdn.example.com/photo.png')).toBe(true);
+  });
+
+  it('rejette une URL de page web', () => {
+    expect(isImageUrl('https://lacuisinedebernard.com/omelette-du-cure/')).toBe(false);
+  });
+
+  it('rejette une URL sans extension image', () => {
+    expect(isImageUrl('https://example.com/api/image/123')).toBe(false);
+  });
+
+  it('retourne false pour null', () => {
+    expect(isImageUrl(null)).toBe(false);
+  });
+});
+
+describe('extractImageFromMarkdown', () => {
+  it('extrait la première URL d\'image valide du markdown', () => {
+    const md = `# Recette\n\n![Photo](https://cdn.lacuisinedebernard.com/wp-content/uploads/2026/01/IMG_7813.jpg)\n\nIngrédients...`;
+    expect(extractImageFromMarkdown(md)).toBe('https://cdn.lacuisinedebernard.com/wp-content/uploads/2026/01/IMG_7813.jpg');
+  });
+
+  it('ignore les logos et icônes', () => {
+    const md = `![logo](https://example.com/logo.png)\n![icon](https://example.com/icon.svg)\n![Recette](https://cdn.example.com/photo.jpg)`;
+    expect(extractImageFromMarkdown(md)).toBe('https://cdn.example.com/photo.jpg');
+  });
+
+  it('ignore les images sans extension image dans le path', () => {
+    const md = `![Page](https://lacuisinedebernard.com/omelette/)\n![Photo](https://cdn.example.com/recette.webp)`;
+    expect(extractImageFromMarkdown(md)).toBe('https://cdn.example.com/recette.webp');
+  });
+
+  it('retourne null si aucune image valide', () => {
+    const md = `# Titre\n\nPas d'image ici.`;
+    expect(extractImageFromMarkdown(md)).toBeNull();
+  });
+
+  it('retourne null pour un markdown vide', () => {
+    expect(extractImageFromMarkdown('')).toBeNull();
   });
 });

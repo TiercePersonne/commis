@@ -7,20 +7,23 @@ type SelectedSource = 'web' | 'text' | 'reel' | null;
 interface ImportSourceSelectorProps {
   onImportStart?: (jobId: string, url: string) => void;
   onTextImport?: (text: string) => void;
+  onReelImport?: (url: string) => void;
 }
 
 function isValidUrl(url: string): boolean {
   return url.startsWith('http://') || url.startsWith('https://');
 }
 
-export function ImportSourceSelector({ onImportStart, onTextImport }: ImportSourceSelectorProps) {
+export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport }: ImportSourceSelectorProps) {
   const [selectedSource, setSelectedSource] = useState<SelectedSource>(null);
   const [url, setUrl] = useState('');
   const [urlError, setUrlError] = useState<string | null>(null);
+  const [reelUrl, setReelUrl] = useState('');
+  const [reelUrlError, setReelUrlError] = useState<string | null>(null);
   const [pastedText, setPastedText] = useState('');
   const [isPending, startTransition] = useTransition();
 
-  const handleCardClick = (source: 'web' | 'text') => {
+  const handleCardClick = (source: 'web' | 'text' | 'reel') => {
     setSelectedSource(source === selectedSource ? null : source);
     setUrlError(null);
   };
@@ -37,6 +40,27 @@ export function ImportSourceSelector({ onImportStart, onTextImport }: ImportSour
     startTransition(async () => {
       if (onImportStart) {
         await onImportStart('', url.trim());
+      }
+    });
+  };
+
+  const handleReelSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setReelUrlError(null);
+
+    const trimmed = reelUrl.trim();
+    if (!isValidUrl(trimmed)) {
+      setReelUrlError("URL invalide. Collez un lien Instagram commençant par https://");
+      return;
+    }
+    if (!trimmed.includes('instagram.com')) {
+      setReelUrlError("Ce lien ne semble pas être un lien Instagram.");
+      return;
+    }
+
+    startTransition(async () => {
+      if (onReelImport) {
+        await onReelImport(trimmed);
       }
     });
   };
@@ -143,19 +167,45 @@ export function ImportSourceSelector({ onImportStart, onTextImport }: ImportSour
           )}
         </div>
 
-        {/* Carte Reel Instagram — désactivée */}
+        {/* Carte Reel Instagram */}
         <div
-          className="rounded-[var(--radius-lg)] border-2 border-[var(--color-border)] bg-[var(--color-bg-card)] p-6 opacity-50 cursor-not-allowed select-none"
-          aria-disabled="true"
+          role="button"
+          tabIndex={0}
+          onClick={() => handleCardClick('reel')}
+          onKeyDown={(e) => e.key === 'Enter' && handleCardClick('reel')}
+          aria-pressed={selectedSource === 'reel'}
+          className={`${cardBase} ${selectedSource === 'reel' ? cardActive : cardInactive}`}
+          style={selectedSource === 'reel' ? { boxShadow: '0 0 0 1px var(--color-accent)' } : {}}
         >
           <div className="text-4xl mb-3">🎬</div>
           <h3 className="font-semibold text-[var(--color-text-primary)] mb-1">Reel Instagram</h3>
-          <p className="text-[13px] text-[var(--color-text-muted)] mb-2">
+          <p className="text-[13px] text-[var(--color-text-muted)]">
             Collez un lien de Reel pour transcrire la recette
           </p>
-          <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-medium bg-[var(--color-bg-primary)] text-[var(--color-text-muted)] border border-[var(--color-border)]">
-            Bientôt disponible
-          </span>
+
+          {selectedSource === 'reel' && (
+            <form onSubmit={handleReelSubmit} className="mt-4" onClick={(e) => e.stopPropagation()}>
+              <input
+                type="url"
+                value={reelUrl}
+                onChange={(e) => { setReelUrl(e.target.value); if (reelUrlError) setReelUrlError(null); }}
+                placeholder="https://www.instagram.com/reel/..."
+                disabled={isPending}
+                autoFocus
+                className={`w-full px-3 py-2.5 text-[14px] border rounded-[var(--radius-sm)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] transition-colors disabled:opacity-50 ${
+                  reelUrlError ? 'border-red-400' : 'border-[var(--color-border)] focus:border-[var(--color-accent)]'
+                }`}
+              />
+              {reelUrlError && <p className="mt-1.5 text-[12px] text-red-600">{reelUrlError}</p>}
+              <button
+                type="submit"
+                disabled={isPending || !reelUrl.trim()}
+                className="mt-3 w-full px-4 py-2.5 bg-[var(--color-accent)] text-white text-[14px] font-medium rounded-[var(--radius-sm)] hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isPending ? 'Transcription en cours…' : 'Importer le Reel'}
+              </button>
+            </form>
+          )}
         </div>
 
       </div>

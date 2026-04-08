@@ -6,12 +6,33 @@ import { AlertCircle } from 'lucide-react';
 import { AppLayout } from '@/app/components/app-layout';
 import { ImportSourceSelector } from '@/app/components/import-source-selector';
 import { RecipePreview } from '@/app/components/recipe-preview';
-import { startImport, startImportFromText } from '@/app/actions/import';
+import { startImport, startImportFromText, startImportFromReel } from '@/app/actions/import';
 import { saveImportedRecipe } from '@/app/actions/recipes';
 import { loadDraft, clearDraft } from '@/lib/utils/draft';
 import type { ExtractedRecipe } from '@/lib/schemas/import-job';
 
-type PageState = 'idle' | 'loading' | 'preview' | 'saving' | 'error';
+type PageState = 'idle' | 'loading' | 'loading-reel' | 'preview' | 'saving' | 'error';
+
+function SkeletonReel() {
+  return (
+    <div className="mt-8 max-w-2xl">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="text-2xl">🎬</div>
+        <p className="text-[14px] text-[var(--color-text-secondary)] animate-pulse">
+          Transcription du Reel en cours… (peut prendre 30–60 secondes)
+        </p>
+      </div>
+      <div className="space-y-3">
+        {["Téléchargement de l'audio", 'Transcription par IA', 'Structuration de la recette'].map((step, i) => (
+          <div key={i} className="flex items-center gap-3 text-[13px] text-[var(--color-text-muted)]">
+            <div className="w-5 h-5 rounded-full border-2 border-[var(--color-border)] animate-pulse" />
+            {step}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function SkeletonImport() {
   return (
@@ -57,6 +78,21 @@ export default function ImportPage() {
     setPageState('loading');
 
     const result = await startImport(url);
+    if (result.error) {
+      setImportError(result.error);
+      setPageState('error');
+      return;
+    }
+
+    setExtractedRecipe(result.data!.recipe);
+    setPageState('preview');
+  };
+
+  const handleReelImport = async (url: string) => {
+    setImportError(null);
+    setPageState('loading-reel');
+
+    const result = await startImportFromReel(url);
     if (result.error) {
       setImportError(result.error);
       setPageState('error');
@@ -163,13 +199,16 @@ export default function ImportPage() {
 
         {/* Sélecteur de source */}
         {pageState === 'idle' && (
-          <ImportSourceSelector onImportStart={handleImportStart} onTextImport={handleTextImport} />
+          <ImportSourceSelector
+            onImportStart={handleImportStart}
+            onTextImport={handleTextImport}
+            onReelImport={handleReelImport}
+          />
         )}
 
         {/* Skeleton loading */}
-        {pageState === 'loading' && (
-          <SkeletonImport />
-        )}
+        {pageState === 'loading' && <SkeletonImport />}
+        {pageState === 'loading-reel' && <SkeletonReel />}
 
         {/* Aperçu + correction */}
         {(pageState === 'preview' || pageState === 'saving') && extractedRecipe && (

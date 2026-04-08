@@ -13,7 +13,7 @@ export class ImportError extends Error {
 export const IMPORT_ERROR_MESSAGES: Record<ImportError['code'], string> = {
   INVALID_URL: "URL invalide. Vérifiez que l'adresse commence par http:// ou https://",
   SITE_UNREACHABLE: "Impossible d'accéder à ce site. Il est peut-être privé ou temporairement indisponible.",
-  EXTRACTION_FAILED: "Impossible d'extraire la recette depuis cette page. Essayez de la saisir manuellement.",
+  EXTRACTION_FAILED: "Impossible d'extraire la recette depuis cette page (site protégé ou contenu inaccessible). Copiez-collez le texte de la recette dans l'onglet « Coller du texte ».",
   LLM_UNAVAILABLE: "Le service d'extraction par IA est temporairement indisponible. Une extraction partielle a été tentée.",
 };
 
@@ -41,6 +41,10 @@ async function fetchPageViaJina(url: string): Promise<string> {
       throw new ImportError(IMPORT_ERROR_MESSAGES.SITE_UNREACHABLE, 'SITE_UNREACHABLE');
     }
 
+    if (text.includes('Target URL returned error 403') || text.includes('requiring CAPTCHA') || text.includes('Just a moment')) {
+      throw new ImportError(IMPORT_ERROR_MESSAGES.SITE_UNREACHABLE, 'SITE_UNREACHABLE');
+    }
+
     return text;
   } catch (error) {
     if (error instanceof ImportError) throw error;
@@ -49,6 +53,48 @@ async function fetchPageViaJina(url: string): Promise<string> {
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+export function normalizeImageUrl(imageUrl: string | null, sourceUrl: string): string | null {
+  if (!imageUrl) return null;
+  try {
+    const parsed = new URL(imageUrl, sourceUrl);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.toString();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+const IMAGE_EXTENSIONS = /\.(jpe?g|png|webp|avif|gif|bmp|tiff?|svg)(\?.*)?$/i;
+
+export function isImageUrl(url: string | null): boolean {
+  if (!url) return false;
+  try {
+    const { pathname } = new URL(url);
+    return IMAGE_EXTENSIONS.test(pathname);
+  } catch {
+    return false;
+  }
+}
+
+const SKIP_PATTERNS = /logo|icon|avatar|favicon|badge|sprite|pixel|tracking|banner|ad[_-]|gravatar/i;
+
+export function extractImageFromMarkdown(markdown: string): string | null {
+  const imgRegex = /!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/g;
+  let match;
+  const candidates: string[] = [];
+
+  while ((match = imgRegex.exec(markdown)) !== null) {
+    const url = match[1];
+    if (isImageUrl(url) && !SKIP_PATTERNS.test(url)) {
+      candidates.push(url);
+    }
+  }
+
+  return candidates[0] ?? null;
 }
 
 export function extractFromJsonLd(html: string): Omit<ExtractedRecipe, 'confidence'> | null {
@@ -133,28 +179,33 @@ async function extractWithLlm(html: string, url: string): Promise<Omit<Extracted
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-    const textContent = html
-      .replace(/<script[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[\s\S]*?<\/style>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 12000);
+    const isMarkdown = !html.includes('<html') && !html.includes('<body');
+    const textContent = isMarkdown
+      ? html.slice(0, 30000)
+      : html
+          .replace(/<script[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[\s\S]*?<\/style>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 30000);
 
-    const prompt = `Extrait la recette depuis ce contenu de page web et retourne un JSON avec exactement ces champs :
+    const prompt = `Tu es un extracteur de recettes de cuisine. Analyse ce texte et retourne un objet JSON valide avec ces champs :
 {
-  "title": "nom de la recette",
-  "ingredients": ["ingrédient 1", "ingrédient 2"],
-  "steps": ["étape 1", "étape 2"],
-  "image_url": "url de l'image ou null",
-  "suggested_tags": ["tag1", "tag2"]
+  "title": "titre exact de la recette",
+  "ingredients": ["ingrédient complet avec quantité", ...],
+  "steps": ["étape complète de préparation", ...],
+  "image_url": "URL directe d'un fichier image (doit se terminer par .jpg, .jpeg, .png, .webp, .gif ou similaire) ou null — NE PAS mettre une URL de page web",
+  "suggested_tags": ["catégorie ou type de plat", ...]
 }
 
-Réponds UNIQUEMENT avec le JSON valide, rien d'autre.
+Règles importantes :
+- Si tu ne trouves pas de recette, retourne quand même le JSON avec les champs que tu as trouvés
+- Ne laisse PAS ingredients ou steps vides si le texte contient des listes
+- Réponds UNIQUEMENT avec le JSON, sans backticks ni texte autour
+- URL source : ${url}
 
-URL source : ${url}
-
-Contenu :
+Texte à analyser :
 ${textContent}`;
 
     const result = await model.generateContent(prompt);
@@ -162,16 +213,19 @@ ${textContent}`;
     if (!content) return null;
 
     const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
+    if (!jsonMatch) {
+      console.error('[import-web] No JSON found in Gemini response');
+      return null;
+    }
 
     const parsed = JSON.parse(jsonMatch[0]);
 
-    const title: string = parsed.title || '';
-    if (!title) return null;
+    const title: string = parsed.title || 'Recette importée';
 
     const ingredients = (parsed.ingredients || []).map((text: string, order: number) => ({ text, order }));
     const steps = (parsed.steps || []).map((text: string, order: number) => ({ text, order }));
-    const image_url: string | null = parsed.image_url || null;
+    const rawImageUrl: string | null = parsed.image_url || null;
+    const image_url: string | null = isImageUrl(rawImageUrl) ? rawImageUrl : null;
     const suggested_tags: string[] = (parsed.suggested_tags || []).slice(0, 8);
 
     return { title, ingredients, steps, image_url, suggested_tags };
@@ -191,7 +245,7 @@ export async function extractFromText(text: string): Promise<ExtractedRecipe> {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-    const truncated = text.trim().slice(0, 15000);
+    const truncated = text.trim().slice(0, 30000);
 
     const prompt = `Extrait la recette depuis ce texte et retourne un JSON avec exactement ces champs :
 {
@@ -235,23 +289,82 @@ function isComplete(result: Omit<ExtractedRecipe, 'confidence'>): boolean {
   return result.ingredients.length > 0 && result.steps.length > 0;
 }
 
+async function extractWithGeminiUrl(url: string): Promise<Omit<ExtractedRecipe, 'confidence'> | null> {
+  if (!process.env.GEMINI_API_KEY) return null;
+  try {
+    const { GoogleGenerativeAI } = await import('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+    const prompt = `Va sur cette URL et extrait la recette de cuisine. Retourne UNIQUEMENT un JSON valide avec ces champs :
+{
+  "title": "titre exact de la recette",
+  "ingredients": ["ingrédient complet avec quantité", ...],
+  "steps": ["étape complète de préparation", ...],
+  "image_url": "première URL d'image de la recette ou null",
+  "suggested_tags": ["catégorie ou type de plat", ...]
+}
+
+URL : ${url}
+
+Réponds UNIQUEMENT avec le JSON, sans backticks ni texte autour.`;
+
+    const result = await model.generateContent([
+      { text: prompt },
+    ]);
+    const content = result.response.text().trim();
+
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    const title: string = parsed.title || 'Recette importée';
+    const ingredients = (parsed.ingredients || []).map((t: string, order: number) => ({ text: t, order }));
+    const steps = (parsed.steps || []).map((t: string, order: number) => ({ text: t, order }));
+    const rawImageUrl: string | null = parsed.image_url || null;
+    const image_url: string | null = isImageUrl(rawImageUrl) ? rawImageUrl : null;
+    const suggested_tags: string[] = (parsed.suggested_tags || []).slice(0, 8);
+
+    return { title, ingredients, steps, image_url, suggested_tags };
+  } catch (error) {
+    console.error('[import-web] extractWithGeminiUrl failed:', error);
+    return null;
+  }
+}
+
 export async function extractRecipeFromUrl(
   url: string,
   onStatusUpdate: (status: string) => Promise<void>
 ): Promise<ExtractedRecipe> {
   await onStatusUpdate('downloading');
 
-  const pageContent = await fetchPageViaJina(url);
+  let pageContent: string | null = null;
+
+  try {
+    pageContent = await fetchPageViaJina(url);
+  } catch {
+    // Jina blocked or unreachable — falling back to Gemini URL mode
+  }
 
   await onStatusUpdate('structuring');
 
+  const markdownImage = pageContent ? extractImageFromMarkdown(pageContent) : null;
+
   if (process.env.GEMINI_API_KEY) {
-    const llmResult = await extractWithLlm(pageContent, url);
-    if (llmResult && isComplete(llmResult)) {
-      return { ...llmResult, source_url: url, confidence: 'complete' };
+    if (pageContent) {
+      const llmResult = await extractWithLlm(pageContent, url);
+      if (llmResult) {
+        const resolvedImage = llmResult.image_url ?? markdownImage ?? null;
+        const normalized = { ...llmResult, image_url: normalizeImageUrl(resolvedImage, url), source_url: url };
+        return { ...normalized, confidence: isComplete(llmResult) ? 'complete' : 'partial' };
+      }
     }
-    if (llmResult) {
-      return { ...llmResult, source_url: url, confidence: 'partial' };
+
+    const geminiUrlResult = await extractWithGeminiUrl(url);
+    if (geminiUrlResult) {
+      const resolvedImage = geminiUrlResult.image_url ?? markdownImage ?? null;
+      const normalized = { ...geminiUrlResult, image_url: normalizeImageUrl(resolvedImage, url), source_url: url };
+      return { ...normalized, confidence: isComplete(geminiUrlResult) ? 'complete' : 'partial' };
     }
   }
 

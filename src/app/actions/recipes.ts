@@ -147,6 +147,7 @@ export async function updateRecipe(
   const rawIngredients = formData.get('ingredients');
   const rawSteps = formData.get('steps');
   const rawTags = formData.get('tags');
+  const rawImageUrl = (formData.get('image_url') as string | null)?.trim() || null;
 
   let ingredients;
   let steps;
@@ -175,6 +176,7 @@ export async function updateRecipe(
       title: validationResult.data.title,
       ingredients: validationResult.data.ingredients,
       steps: validationResult.data.steps,
+      image_url: rawImageUrl,
     })
     .eq('id', id)
     .eq('user_id', user.id)
@@ -248,6 +250,47 @@ export async function deleteRecipe(id: string) {
   redirect('/');
 }
 
+async function uploadImageFromUrl(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  sourceUrl: string
+): Promise<string | null> {
+  try {
+    const response = await fetch(sourceUrl, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        Referer: new URL(sourceUrl).origin + '/',
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) return null;
+
+    const contentType = response.headers.get('content-type') ?? 'image/jpeg';
+    if (!contentType.startsWith('image/')) return null;
+
+    const ext = contentType.split('/')[1]?.split(';')[0] ?? 'jpg';
+    const filename = `${userId}/${Date.now()}.${ext}`;
+    const buffer = await response.arrayBuffer();
+
+    const { error } = await supabase.storage
+      .from('recipe-images')
+      .upload(filename, buffer, { contentType, upsert: false });
+
+    if (error) return null;
+
+    const { data: urlData } = supabase.storage
+      .from('recipe-images')
+      .getPublicUrl(filename);
+
+    return urlData.publicUrl ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function saveImportedRecipe(
   recipe: ExtractedRecipe,
   tagIds: string[]
@@ -256,6 +299,12 @@ export async function saveImportedRecipe(
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, error: 'Non authentifié' };
+
+  let finalImageUrl: string | null = recipe.image_url ?? null;
+  if (finalImageUrl) {
+    const uploaded = await uploadImageFromUrl(supabase, user.id, finalImageUrl);
+    if (uploaded) finalImageUrl = uploaded;
+  }
 
   const { data, error } = await supabase
     .from('recipes')
@@ -266,7 +315,7 @@ export async function saveImportedRecipe(
       steps: recipe.steps,
       source_url: recipe.source_url ?? null,
       source_type: 'web',
-      image_url: recipe.image_url ?? null,
+      image_url: finalImageUrl,
       confidence: recipe.confidence,
     })
     .select('id')

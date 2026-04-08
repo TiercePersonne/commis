@@ -7,15 +7,18 @@ function getSubmitButton(container: HTMLElement) {
 }
 
 describe('ImportSourceSelector', () => {
-  it('affiche les deux cartes source', () => {
+  it('affiche les trois cartes source', () => {
     render(<ImportSourceSelector />);
     expect(screen.getByText('Site web')).toBeDefined();
+    expect(screen.getByText('Coller le texte')).toBeDefined();
     expect(screen.getByText('Reel Instagram')).toBeDefined();
   });
 
-  it('affiche le badge "Bientôt disponible" sur la carte Reel', () => {
+  it('révèle le champ URL Reel quand on clique sur la carte Reel', () => {
     render(<ImportSourceSelector />);
-    expect(screen.getByText('Bientôt disponible')).toBeDefined();
+    const reelCard = screen.getByRole('button', { name: /reel instagram/i });
+    fireEvent.click(reelCard);
+    expect(screen.getByPlaceholderText(/instagram\.com\/reel/i)).toBeDefined();
   });
 
   it('révèle le champ URL quand on clique sur la carte Site web', () => {

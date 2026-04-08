@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ExternalLink } from 'lucide-react';
+import { RecipeImage } from '@/app/components/recipe-image';
 import { getRecipe } from '@/app/actions/recipes';
 import { getRecipeTags } from '@/app/actions/tags';
 import { DeleteButton } from './delete-button';
@@ -31,9 +32,18 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
             ← Retour aux recettes
           </Link>
 
-          <div className="w-full h-72 rounded-3xl bg-gradient-to-br from-[#E8D5C4] to-[#D4B8A0] flex items-center justify-center text-[var(--color-text-muted)] text-5xl mb-6">
-            🍽️
-          </div>
+          {recipe.image_url ? (
+            <RecipeImage
+              src={recipe.image_url}
+              alt={recipe.title}
+              className="w-full h-72 rounded-3xl object-cover mb-6"
+              fallbackClassName="w-full h-72 rounded-3xl bg-gradient-to-br from-[#E8D5C4] to-[#D4B8A0] flex items-center justify-center text-[var(--color-text-muted)] text-5xl mb-6"
+            />
+          ) : (
+            <div className="w-full h-72 rounded-3xl bg-gradient-to-br from-[#E8D5C4] to-[#D4B8A0] flex items-center justify-center text-[var(--color-text-muted)] text-5xl mb-6">
+              🍽️
+            </div>
+          )}
 
           <div className="mb-6">
             <h1 className="text-[32px] font-serif font-bold text-[var(--color-text-primary)] mb-2 leading-tight">

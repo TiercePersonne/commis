@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { ConfidenceIndicator } from './confidence-indicator';
 import { TagSelector } from './tag-selector';
 import { saveDraft } from '@/lib/utils/draft';
+import { getImageProxySrc } from '@/lib/utils/image';
 import type { ExtractedRecipe } from '@/lib/schemas/import-job';
 
 interface RecipePreviewProps {
@@ -130,6 +131,22 @@ export function RecipePreview({ initialRecipe, onSave, onCancel, isSaving = fals
           placeholder="https://..."
           className="w-full px-3 py-2 text-[13px] border border-[var(--color-border)] rounded-[var(--radius-sm)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] disabled:opacity-50"
         />
+        {recipe.image_url && (
+          <img
+            src={recipe.image_url}
+            alt="Aperçu"
+            className="mt-2 w-full h-40 object-cover rounded-[var(--radius-sm)] border border-[var(--color-border)]"
+            onError={(e) => {
+              const img = e.currentTarget as HTMLImageElement;
+              if (!img.dataset.proxied) {
+                img.dataset.proxied = '1';
+                img.src = getImageProxySrc(recipe.image_url!);
+              } else {
+                img.style.display = 'none';
+              }
+            }}
+          />
+        )}
       </div>
 
       {/* Ingrédients */}

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import type { Recipe } from '@/lib/schemas/recipe';
 import type { Tag } from '@/lib/schemas/tag';
+import { getImageSrc, getImageProxySrc } from '@/lib/utils/image';
 
 interface RecipeFiltersProps {
   recipes: Recipe[];
@@ -117,7 +118,24 @@ export function RecipeFilters({ recipes, recipeTagsMap }: RecipeFiltersProps) {
                 href={`/recipes/${recipe.id}`}
                 className="block bg-[var(--color-bg-card)] rounded-2xl overflow-hidden border border-[var(--color-border-light)] shadow-[0_1px_3px_rgba(44,24,16,0.06)] hover:shadow-[0_4px_12px_rgba(44,24,16,0.08)] hover:-translate-y-0.5 transition-all"
               >
-                <div className="w-full h-44 bg-gradient-to-br from-[var(--color-bg-primary)] to-[var(--color-border)] flex items-center justify-center text-[var(--color-text-muted)] text-4xl">
+                {recipe.image_url ? (
+                  <img
+                    src={getImageSrc(recipe.image_url)}
+                    alt={recipe.title}
+                    className="w-full h-44 object-cover"
+                    onError={(e) => {
+                      const img = e.currentTarget as HTMLImageElement;
+                      if (!img.dataset.proxied) {
+                        img.dataset.proxied = '1';
+                        img.src = getImageProxySrc(recipe.image_url!);
+                      } else {
+                        img.style.display = 'none';
+                        (img.nextElementSibling as HTMLElement).style.display = 'flex';
+                      }
+                    }}
+                  />
+                ) : null}
+                <div className="w-full h-44 bg-gradient-to-br from-[var(--color-bg-primary)] to-[var(--color-border)] items-center justify-center text-[var(--color-text-muted)] text-4xl" style={{ display: recipe.image_url ? 'none' : 'flex' }}>
                   🍽️
                 </div>
                 

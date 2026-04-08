@@ -2,6 +2,49 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { encrypt, decrypt } from '@/lib/utils/crypto';
+
+type ActionResult<T = void> = { data: T; error: null } | { data: null; error: string };
+
+export async function getInstagramCookies(): Promise<string | null> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data } = await supabase
+    .from('user_settings')
+    .select('instagram_cookies')
+    .eq('user_id', user.id)
+    .single();
+
+  const raw = data?.instagram_cookies ?? null;
+  if (!raw) return null;
+  try {
+    return decrypt(raw);
+  } catch {
+    return null;
+  }
+}
+
+export async function saveInstagramCookies(
+  cookiesContent: string | null
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Non authentifié' };
+
+  const encrypted = cookiesContent ? encrypt(cookiesContent) : null;
+
+  const { error } = await supabase
+    .from('user_settings')
+    .upsert(
+      { user_id: user.id, instagram_cookies: encrypted, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    );
+
+  if (error) return { data: null, error: 'Erreur lors de la sauvegarde' };
+  return { data: undefined, error: null };
+}
 
 export async function exportUserData(): Promise<{ data?: string; error?: string }> {
   const supabase = await createClient();
