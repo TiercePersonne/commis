@@ -49,7 +49,6 @@ async function downloadReelAudio(
     if (cookiesPath) commonArgs.push('--cookies', cookiesPath);
 
     const descArgs = [
-      '-m', 'yt_dlp',
       ...commonArgs,
       '--print', 'description',
       '--print', 'thumbnail',
@@ -57,7 +56,12 @@ async function downloadReelAudio(
       reelUrl,
     ];
 
-    const { stdout: descStdout, stderr: descStderr } = await execFileAsync('python', descArgs, {
+    const ytDlpBin = process.env.NODE_ENV === 'production' ? 'yt-dlp' : 'python';
+    const descArgsWithModule = process.env.NODE_ENV === 'production'
+      ? descArgs
+      : ['-m', 'yt_dlp', ...descArgs];
+
+    const { stdout: descStdout, stderr: descStderr } = await execFileAsync(ytDlpBin, descArgsWithModule, {
       timeout: 30000,
       maxBuffer: 2 * 1024 * 1024,
     }).catch(() => ({ stdout: '', stderr: '' }));
@@ -77,7 +81,6 @@ async function downloadReelAudio(
     const description = lines.slice(0, cutAt).join('\n').trim();
 
     const dlArgs = [
-      '-m', 'yt_dlp',
       ...commonArgs,
       '--extract-audio',
       '--audio-format', 'mp3',
@@ -86,7 +89,11 @@ async function downloadReelAudio(
       reelUrl,
     ];
 
-    const { stderr: dlStderr } = await execFileAsync('python', dlArgs, {
+    const dlArgsWithModule = process.env.NODE_ENV === 'production'
+      ? dlArgs
+      : ['-m', 'yt_dlp', ...dlArgs];
+
+    const { stderr: dlStderr } = await execFileAsync(ytDlpBin, dlArgsWithModule, {
       timeout: 60000,
       maxBuffer: 10 * 1024 * 1024,
     });
