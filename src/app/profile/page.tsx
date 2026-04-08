@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { AppLayout } from '@/app/components/app-layout';
-import { exportUserData, deleteAccount, saveInstagramCookies, getInstagramCookies, hasSharedInstagramCookies } from '@/app/actions/profile';
+import { exportUserData, deleteAccount, hasSharedInstagramCookies } from '@/app/actions/profile';
 import { logout } from '@/app/login/actions';
 
 export default function ProfilePage() {
@@ -11,40 +11,11 @@ export default function ProfilePage() {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [instagramCookies, setInstagramCookies] = useState('');
-  const [instagramSaved, setInstagramSaved] = useState(false);
-  const [instagramSaving, setInstagramSaving] = useState(false);
-  const [instagramConnected, setInstagramConnected] = useState(false);
   const [sharedCookiesActive, setSharedCookiesActive] = useState(false);
 
   useEffect(() => {
-    getInstagramCookies().then((cookies) => {
-      if (cookies) setInstagramConnected(true);
-    });
     hasSharedInstagramCookies().then(setSharedCookiesActive);
   }, []);
-
-  const handleSaveInstagram = async () => {
-    const trimmed = instagramCookies.trim();
-    if (!trimmed) return;
-    setInstagramSaving(true);
-    setInstagramSaved(false);
-    const result = await saveInstagramCookies(trimmed);
-    setInstagramSaving(false);
-    if (!result.error) {
-      setInstagramConnected(true);
-      setInstagramSaved(true);
-      setTimeout(() => setInstagramSaved(false), 3000);
-    }
-  };
-
-  const handleDisconnectInstagram = async () => {
-    setInstagramSaving(true);
-    await saveInstagramCookies(null);
-    setInstagramCookies('');
-    setInstagramConnected(false);
-    setInstagramSaving(false);
-  };
 
   const handleExport = async () => {
     setExporting(true);
@@ -115,68 +86,22 @@ export default function ProfilePage() {
           <div className="space-y-6">
             {/* Section Instagram */}
             <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-light)] rounded-2xl p-6">
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2">
                 <span className="text-xl">🎬</span>
                 <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                  Connexion Instagram
+                  Import Instagram
                 </h2>
-                {(instagramConnected || sharedCookiesActive) && (
-                  <span className="ml-auto text-[12px] font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">
-                    {instagramConnected ? 'Connecté' : 'Cookies partagés actifs'}
-                  </span>
-                )}
+                <span className={`ml-auto text-[12px] font-medium px-2 py-0.5 rounded-full ${
+                  sharedCookiesActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                }`}>
+                  {sharedCookiesActive ? 'Activé' : 'Non disponible'}
+                </span>
               </div>
-              <p className="text-sm text-[var(--color-text-secondary)] mb-4">
-                Pour importer des recettes depuis des Reels Instagram, colle le contenu de ton fichier cookies Instagram ci-dessous.
+              <p className="text-sm text-[var(--color-text-secondary)] mt-2">
+                {sharedCookiesActive
+                  ? "L'import de Reels Instagram est disponible."
+                  : "L'import de Reels Instagram n'est pas configuré."}
               </p>
-
-              <details className="mb-4">
-                <summary className="text-[13px] text-[var(--color-accent)] cursor-pointer hover:underline">
-                  Comment obtenir mon fichier cookies ?
-                </summary>
-                <ol className="mt-2 space-y-1 text-[13px] text-[var(--color-text-secondary)] list-decimal list-inside">
-                  <li>Installe l&apos;extension <strong>"Get cookies.txt LOCALLY"</strong> dans Chrome</li>
-                  <li>Va sur <strong>instagram.com</strong> et connecte-toi</li>
-                  <li>Clique sur l&apos;extension &gt; <strong>Export As</strong> &gt; <strong>cookies.txt (Current Site)</strong></li>
-                  <li>Ouvre le fichier téléchargé dans un éditeur de texte, sélectionne tout et copie</li>
-                  <li>Colle le contenu dans le champ ci-dessous</li>
-                </ol>
-              </details>
-
-              {!instagramConnected ? (
-                <div className="space-y-2">
-                  <textarea
-                    value={instagramCookies}
-                    onChange={(e) => setInstagramCookies(e.target.value)}
-                    placeholder={`# Netscape HTTP Cookie File\n.instagram.com\tTRUE\t/\tTRUE\t...`}
-                    rows={5}
-                    className="w-full px-3 py-2 text-[13px] font-mono border border-[var(--color-border)] rounded-xl bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)] outline-none resize-none"
-                  />
-                  <button
-                    onClick={handleSaveInstagram}
-                    disabled={instagramSaving || !instagramCookies.trim()}
-                    className="px-4 py-2 bg-[var(--color-accent)] text-white rounded-xl hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm transition-colors"
-                  >
-                    {instagramSaving ? 'Enregistrement…' : 'Enregistrer'}
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <span className="text-[13px] text-[var(--color-text-secondary)]">
-                    Cookies enregistrés — import Reel activé
-                  </span>
-                  {instagramSaved && (
-                    <span className="text-[12px] text-green-600">✓ Sauvegardé</span>
-                  )}
-                  <button
-                    onClick={handleDisconnectInstagram}
-                    disabled={instagramSaving}
-                    className="ml-auto text-[13px] text-[var(--color-text-muted)] hover:text-red-600 transition-colors"
-                  >
-                    Déconnecter
-                  </button>
-                </div>
-              )}
             </div>
             <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-light)] rounded-2xl p-6">
               <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">
