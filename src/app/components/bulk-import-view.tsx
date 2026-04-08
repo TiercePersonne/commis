@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
-import { isInstagramReelUrl } from '@/lib/utils/import-reel';
+import { isInstagramReelUrl } from '@/lib/utils/url-utils';
 import { startImport, startImportFromReel } from '@/app/actions/import';
 import { saveImportedRecipe } from '@/app/actions/recipes';
 import type { ExtractedRecipe } from '@/lib/schemas/import-job';
