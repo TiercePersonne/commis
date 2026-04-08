@@ -17,6 +17,9 @@ WORKDIR /app
 # Installer Python3 + pip + ffmpeg (requis par yt-dlp pour la conversion audio)
 RUN apk add --no-cache python3 py3-pip ffmpeg
 
+# Créer un symlink python → python3 (Alpine n'a que python3)
+RUN ln -sf /usr/bin/python3 /usr/bin/python
+
 # Installer yt-dlp
 RUN pip3 install --no-cache-dir yt-dlp --break-system-packages
 
