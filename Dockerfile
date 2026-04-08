@@ -30,7 +30,7 @@ RUN npm run build
 
 # Copier les fichiers statiques dans le bon emplacement pour standalone
 RUN cp -r .next/static .next/standalone/.next/static \
-    && cp -r public .next/standalone/public
+    && (cp -r public .next/standalone/public 2>/dev/null || true)
 
 ENV NODE_ENV=production
 ENV PORT=3000
