@@ -14,11 +14,16 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# Installer Python3 + ffmpeg + yt-dlp via apk
-RUN apk add --no-cache python3 ffmpeg yt-dlp
+# Installer Python3 + pip + ffmpeg
+RUN apk add --no-cache python3 py3-pip ffmpeg
 
-# Créer un symlink python → python3 (Alpine n'a que python3)
+# Créer un symlink python → python3
 RUN ln -sf /usr/bin/python3 /usr/bin/python
+
+# Installer yt-dlp dans un virtualenv et exposer le binaire
+RUN python3 -m venv /opt/yt-dlp-env \
+    && /opt/yt-dlp-env/bin/pip install --no-cache-dir yt-dlp \
+    && ln -sf /opt/yt-dlp-env/bin/yt-dlp /usr/local/bin/yt-dlp
 
 # Copier les fichiers Next.js buildés
 COPY --from=builder /app/.next/standalone ./
