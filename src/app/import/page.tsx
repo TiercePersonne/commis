@@ -8,10 +8,11 @@ import { ImportSourceSelector } from '@/app/components/import-source-selector';
 import { RecipePreview } from '@/app/components/recipe-preview';
 import { startImport, startImportFromText, startImportFromReel } from '@/app/actions/import';
 import { saveImportedRecipe } from '@/app/actions/recipes';
+import { BulkImportView } from '@/app/components/bulk-import-view';
 import { loadDraft, clearDraft } from '@/lib/utils/draft';
 import type { ExtractedRecipe } from '@/lib/schemas/import-job';
 
-type PageState = 'idle' | 'loading' | 'loading-reel' | 'preview' | 'saving' | 'error';
+type PageState = 'idle' | 'loading' | 'loading-reel' | 'preview' | 'saving' | 'error' | 'bulk';
 
 function SkeletonReel() {
   return (
@@ -142,6 +143,10 @@ export default function ImportPage() {
     setPageState('idle');
   };
 
+  const handleBulkDone = () => {
+    router.push('/');
+  };
+
   const handleResumeDraft = () => {
     if (draftRecipe?.title) {
       setExtractedRecipe({
@@ -203,7 +208,13 @@ export default function ImportPage() {
             onImportStart={handleImportStart}
             onTextImport={handleTextImport}
             onReelImport={handleReelImport}
+            onBulkImport={() => setPageState('bulk')}
           />
+        )}
+
+        {/* Import en masse */}
+        {pageState === 'bulk' && (
+          <BulkImportView onDone={handleBulkDone} />
         )}
 
         {/* Skeleton loading */}

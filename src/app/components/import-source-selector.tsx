@@ -8,13 +8,14 @@ interface ImportSourceSelectorProps {
   onImportStart?: (jobId: string, url: string) => void;
   onTextImport?: (text: string) => void;
   onReelImport?: (url: string) => void;
+  onBulkImport?: () => void;
 }
 
 function isValidUrl(url: string): boolean {
   return url.startsWith('http://') || url.startsWith('https://');
 }
 
-export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport }: ImportSourceSelectorProps) {
+export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport, onBulkImport }: ImportSourceSelectorProps) {
   const [selectedSource, setSelectedSource] = useState<SelectedSource>(null);
   const [url, setUrl] = useState('');
   const [urlError, setUrlError] = useState<string | null>(null);
@@ -206,6 +207,21 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
               </button>
             </form>
           )}
+        </div>
+
+        {/* Carte Import en masse */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => onBulkImport?.()}
+          onKeyDown={(e) => e.key === 'Enter' && onBulkImport?.()}
+          className={`${cardBase} ${cardInactive}`}
+        >
+          <div className="text-4xl mb-3">📦</div>
+          <h3 className="font-semibold text-[var(--color-text-primary)] mb-1">Import en masse</h3>
+          <p className="text-[13px] text-[var(--color-text-muted)]">
+            Collez plusieurs URLs d&apos;un coup (sites web et Reels)
+          </p>
         </div>
 
       </div>
