@@ -1,8 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import type { MealPlanWithRecipe } from '@/lib/schemas/meal-plan';
 import { removeFromSlot } from '@/app/actions/meal-plans';
+import { getImageSrc, getImageProxySrc } from '@/lib/utils/image';
+import { toSentenceCase } from '@/lib/utils/text';
 
 type MealPlannerGridProps = {
   weekStart: string;
@@ -69,19 +72,49 @@ export function MealPlannerGrid({ weekStart, mealPlans, onSlotClick }: MealPlann
                     className="min-h-[100px] border border-[var(--color-border-light)] rounded-xl bg-[var(--color-bg-card)] shadow-[0_1px_3px_rgba(44,24,16,0.06)]"
                   >
                     {mealPlan ? (
-                      <div className="p-3 h-full flex flex-col">
-                        <h3 className="text-sm font-medium text-[var(--color-text-primary)] mb-2 line-clamp-2">
-                          {mealPlan.recipe.title}
-                        </h3>
+                      <>
+                        <Link
+                          href={`/recipes/${mealPlan.recipe.id}`}
+                          className="flex flex-col group"
+                        >
+                          {mealPlan.recipe.image_url ? (
+                            <img
+                              src={getImageSrc(mealPlan.recipe.image_url)}
+                              alt={mealPlan.recipe.title}
+                              className="w-full h-20 object-cover rounded-t-xl"
+                              onError={(e) => {
+                                const img = e.currentTarget as HTMLImageElement;
+                                if (!img.dataset.proxied) {
+                                  img.dataset.proxied = '1';
+                                  img.src = getImageProxySrc(mealPlan.recipe.image_url!);
+                                } else {
+                                  img.style.display = 'none';
+                                  (img.nextElementSibling as HTMLElement).style.display = 'flex';
+                                }
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className="w-full h-20 bg-gradient-to-br from-[var(--color-bg-primary)] to-[var(--color-border)] items-center justify-center text-[var(--color-text-muted)] text-2xl rounded-t-xl"
+                            style={{ display: mealPlan.recipe.image_url ? 'none' : 'flex' }}
+                          >
+                            🍽️
+                          </div>
+                          <div className="p-2 flex flex-col">
+                            <span className="text-xs font-medium text-[var(--color-text-primary)] line-clamp-2 group-hover:text-[var(--color-accent)] transition-colors">
+                              {toSentenceCase(mealPlan.recipe.title)}
+                            </span>
+                          </div>
+                        </Link>
                         <button
                           onClick={() => handleRemove(dayIndex, key)}
                           disabled={isRemoving}
-                          className="mt-auto text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                          className="mx-2 mb-2 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50 text-left"
                           aria-label={`Retirer ${mealPlan.recipe.title}`}
                         >
                           {isRemoving ? 'Suppression...' : 'Retirer'}
                         </button>
-                      </div>
+                      </>
                     ) : (
                       <button
                         onClick={() => onSlotClick(dayIndex, key)}

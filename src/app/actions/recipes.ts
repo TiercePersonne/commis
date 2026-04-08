@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createRecipeSchema, type Recipe } from '@/lib/schemas/recipe';
 import type { Tag } from '@/lib/schemas/tag';
 import type { ExtractedRecipe } from '@/lib/schemas/import-job';
+import { toSentenceCase } from '@/lib/utils/text';
 
 export type RecipeWithTags = Recipe & { tags: Tag[] };
 
@@ -51,7 +52,7 @@ export async function createRecipe(
     .from('recipes')
     .insert({
       user_id: user.id,
-      title: validationResult.data.title,
+      title: toSentenceCase(validationResult.data.title),
       ingredients: validationResult.data.ingredients,
       steps: validationResult.data.steps,
     })
@@ -222,7 +223,7 @@ export async function updateRecipe(
   const { data, error } = await supabase
     .from('recipes')
     .update({
-      title: validationResult.data.title,
+      title: toSentenceCase(validationResult.data.title),
       ingredients: validationResult.data.ingredients,
       steps: validationResult.data.steps,
       image_url: rawImageUrl,
@@ -304,29 +305,54 @@ async function uploadImageFromUrl(
   userId: string,
   sourceUrl: string
 ): Promise<string | null> {
-  try {
-    const response = await fetch(sourceUrl, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-        Referer: new URL(sourceUrl).origin + '/',
-      },
-      signal: AbortSignal.timeout(10000),
-    });
+  const HEADERS_BASE = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+    'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
+  };
 
-    if (!response.ok) return null;
+  async function tryDownload(withReferer: boolean): Promise<Response | null> {
+    try {
+      const headers: Record<string, string> = { ...HEADERS_BASE };
+      if (withReferer) headers['Referer'] = new URL(sourceUrl).origin + '/';
+      const res = await fetch(sourceUrl, { headers, signal: AbortSignal.timeout(10000) });
+      if (res.ok) return res;
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  try {
+    // Tentative 1 : avec Referer
+    let response = await tryDownload(true);
+    // Tentative 2 : sans Referer (contourne certaines protections anti-hotlink)
+    if (!response) response = await tryDownload(false);
+    if (!response) return null;
 
     const contentType = response.headers.get('content-type') ?? 'image/jpeg';
     if (!contentType.startsWith('image/')) return null;
 
-    const ext = contentType.split('/')[1]?.split(';')[0] ?? 'jpg';
-    const filename = `${userId}/${Date.now()}.${ext}`;
-    const buffer = await response.arrayBuffer();
+    const rawBuffer = Buffer.from(await response.arrayBuffer());
+
+    // Optimisation : redimensionnement (max 1200px) + conversion WebP
+    let processedBuffer: Buffer;
+    try {
+      const sharp = (await import('sharp')).default;
+      processedBuffer = await sharp(rawBuffer)
+        .resize({ width: 1200, withoutEnlargement: true }) // max 1200px, ne pas agrandir les petites images
+        .webp({ quality: 82 })                             // WebP, qualité 82% (~70-90% plus léger)
+        .toBuffer();
+    } catch {
+      // Si sharp échoue (format non supporté), on upload l'image originale
+      processedBuffer = rawBuffer;
+    }
+
+    const filename = `${userId}/${Date.now()}.webp`;
 
     const { error } = await supabase.storage
       .from('recipe-images')
-      .upload(filename, buffer, { contentType, upsert: false });
+      .upload(filename, processedBuffer, { contentType: 'image/webp', upsert: false });
 
     if (error) return null;
 
@@ -339,6 +365,7 @@ async function uploadImageFromUrl(
     return null;
   }
 }
+
 
 export async function saveImportedRecipe(
   recipe: ExtractedRecipe,
@@ -359,7 +386,7 @@ export async function saveImportedRecipe(
     .from('recipes')
     .insert({
       user_id: user.id,
-      title: recipe.title,
+      title: toSentenceCase(recipe.title),
       ingredients: recipe.ingredients,
       steps: recipe.steps,
       source_url: recipe.source_url ?? null,

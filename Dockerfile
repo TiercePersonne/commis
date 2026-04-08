@@ -2,8 +2,8 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Installer Python3 + pip + ffmpeg
-RUN apk add --no-cache python3 py3-pip ffmpeg
+# Installer Python3 + pip + ffmpeg + vips (pour sharp)
+RUN apk add --no-cache python3 py3-pip ffmpeg vips-dev
 
 # Créer un symlink python → python3
 RUN ln -sf /usr/bin/python3 /usr/bin/python

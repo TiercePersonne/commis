@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { Recipe } from '@/lib/schemas/recipe';
 import type { Tag } from '@/lib/schemas/tag';
 import { getImageSrc, getImageProxySrc } from '@/lib/utils/image';
+import { toSentenceCase } from '@/lib/utils/text';
 
 interface RecipeFiltersProps {
   recipes: Recipe[];
@@ -141,7 +142,7 @@ export function RecipeFilters({ recipes, recipeTagsMap }: RecipeFiltersProps) {
                 
                 <div className="p-4">
                   <h2 className="text-[17px] font-serif font-semibold text-[var(--color-text-primary)] mb-2 leading-tight">
-                    {recipe.title}
+                    {toSentenceCase(recipe.title)}
                   </h2>
                   
                   {tags.length > 0 && (
