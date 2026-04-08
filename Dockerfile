@@ -2,8 +2,8 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Installer Python3 + pip + ffmpeg + vips (pour sharp)
-RUN apk add --no-cache python3 py3-pip ffmpeg vips-dev
+# Installer Python3 + pip + ffmpeg (sharp utilise ses propres librairies pré-compilées)
+RUN apk add --no-cache python3 py3-pip ffmpeg
 
 # Créer un symlink python → python3
 RUN ln -sf /usr/bin/python3 /usr/bin/python
@@ -22,7 +22,7 @@ RUN yt-dlp --version
 
 # Installer les dépendances Node.js
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 # Builder Next.js
 COPY . .
