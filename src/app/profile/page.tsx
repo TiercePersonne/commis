@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { AppLayout } from '@/app/components/app-layout';
-import { exportUserData, deleteAccount, saveInstagramCookies, getInstagramCookies } from '@/app/actions/profile';
+import { exportUserData, deleteAccount, saveInstagramCookies, getInstagramCookies, hasSharedInstagramCookies } from '@/app/actions/profile';
 import { logout } from '@/app/login/actions';
 
 export default function ProfilePage() {
@@ -15,11 +15,13 @@ export default function ProfilePage() {
   const [instagramSaved, setInstagramSaved] = useState(false);
   const [instagramSaving, setInstagramSaving] = useState(false);
   const [instagramConnected, setInstagramConnected] = useState(false);
+  const [sharedCookiesActive, setSharedCookiesActive] = useState(false);
 
   useEffect(() => {
     getInstagramCookies().then((cookies) => {
       if (cookies) setInstagramConnected(true);
     });
+    hasSharedInstagramCookies().then(setSharedCookiesActive);
   }, []);
 
   const handleSaveInstagram = async () => {
@@ -118,9 +120,9 @@ export default function ProfilePage() {
                 <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
                   Connexion Instagram
                 </h2>
-                {instagramConnected && (
+                {(instagramConnected || sharedCookiesActive) && (
                   <span className="ml-auto text-[12px] font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">
-                    Connecté
+                    {instagramConnected ? 'Connecté' : 'Cookies partagés actifs'}
                   </span>
                 )}
               </div>

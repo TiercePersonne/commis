@@ -22,13 +22,15 @@ async function downloadReelAudio(
     const localCookiesPath = join(process.cwd(), 'instagram-cookies.txt');
     let cookiesPath: string | null = null;
 
+    const effectiveCookies = cookiesContent || process.env.INSTAGRAM_SHARED_COOKIES || null;
+
     try {
       await access(localCookiesPath);
       cookiesPath = localCookiesPath;
     } catch {
-      if (cookiesContent) {
+      if (effectiveCookies) {
         const tmpCookiesPath = join(tmpDir, 'cookies.txt');
-        await writeFile(tmpCookiesPath, cookiesContent, 'utf8');
+        await writeFile(tmpCookiesPath, effectiveCookies, 'utf8');
         cookiesPath = tmpCookiesPath;
       }
     }

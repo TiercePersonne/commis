@@ -26,6 +26,10 @@ export async function getInstagramCookies(): Promise<string | null> {
   }
 }
 
+export async function hasSharedInstagramCookies(): Promise<boolean> {
+  return !!process.env.INSTAGRAM_SHARED_COOKIES;
+}
+
 export async function saveInstagramCookies(
   cookiesContent: string | null
 ): Promise<ActionResult> {
