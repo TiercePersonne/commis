@@ -56,10 +56,10 @@ async function downloadReelAudio(
       reelUrl,
     ];
 
-    const ytDlpBin = process.env.NODE_ENV === 'production' ? 'yt-dlp' : 'python';
-    const descArgsWithModule = process.env.NODE_ENV === 'production'
-      ? descArgs
-      : ['-m', 'yt_dlp', ...descArgs];
+    const isProduction = process.env.NODE_ENV === 'production';
+    const ytDlpBin = isProduction ? '/usr/local/bin/yt-dlp' : 'python';
+    const descArgsWithModule = isProduction ? descArgs : ['-m', 'yt_dlp', ...descArgs];
+    console.log('[import-reel] using binary:', ytDlpBin);
 
     const { stdout: descStdout, stderr: descStderr } = await execFileAsync(ytDlpBin, descArgsWithModule, {
       timeout: 30000,
@@ -89,9 +89,7 @@ async function downloadReelAudio(
       reelUrl,
     ];
 
-    const dlArgsWithModule = process.env.NODE_ENV === 'production'
-      ? dlArgs
-      : ['-m', 'yt_dlp', ...dlArgs];
+    const dlArgsWithModule = isProduction ? dlArgs : ['-m', 'yt_dlp', ...dlArgs];
 
     const { stderr: dlStderr } = await execFileAsync(ytDlpBin, dlArgsWithModule, {
       timeout: 60000,
