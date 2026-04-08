@@ -22,7 +22,7 @@ RUN yt-dlp --version
 
 # Installer les dépendances Node.js
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Builder Next.js
 COPY . .
