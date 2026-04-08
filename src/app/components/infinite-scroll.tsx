@@ -1,14 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getUserRecipes } from '@/app/actions/recipes';
-import { getRecipeTags } from '@/app/actions/tags';
+import { getUserRecipesWithTags, type RecipeWithTags } from '@/app/actions/recipes';
 import { RecipeFilters } from './recipe-filters';
-import type { Recipe } from '@/lib/schemas/recipe';
 import type { Tag } from '@/lib/schemas/tag';
 
 interface InfiniteScrollProps {
-  initialRecipes: Recipe[];
+  initialRecipes: RecipeWithTags[];
   initialRecipeTagsMap: Map<string, Tag[]>;
   initialHasMore: boolean;
 }
@@ -18,7 +16,7 @@ export function InfiniteScroll({
   initialRecipeTagsMap,
   initialHasMore 
 }: InfiniteScrollProps) {
-  const [recipes, setRecipes] = useState<Recipe[]>(initialRecipes);
+  const [recipes, setRecipes] = useState<RecipeWithTags[]>(initialRecipes);
   const [recipeTagsMap, setRecipeTagsMap] = useState<Map<string, Tag[]>>(initialRecipeTagsMap);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [isLoading, setIsLoading] = useState(false);
@@ -34,18 +32,14 @@ export function InfiniteScroll({
       id: lastRecipe.id,
     };
 
-    const { recipes: newRecipes, hasMore: moreAvailable } = await getUserRecipes(50, cursor);
+    // 1 seule requête pour les recettes ET leurs tags
+    const { recipes: newRecipes, hasMore: moreAvailable } = await getUserRecipesWithTags(50, cursor);
 
     if (newRecipes && newRecipes.length > 0) {
       const newTagsMap = new Map(recipeTagsMap);
-      await Promise.all(
-        newRecipes.map(async (recipe) => {
-          const { tags } = await getRecipeTags(recipe.id);
-          if (tags) {
-            newTagsMap.set(recipe.id, tags);
-          }
-        })
-      );
+      for (const recipe of newRecipes) {
+        newTagsMap.set(recipe.id, recipe.tags);
+      }
 
       setRecipes([...recipes, ...newRecipes]);
       setRecipeTagsMap(newTagsMap);
@@ -88,3 +82,4 @@ export function InfiniteScroll({
     </>
   );
 }
+

@@ -54,7 +54,6 @@ export async function createTag(name: string): Promise<{ tag?: Tag; error?: stri
     return { error: 'Erreur lors de la création du tag' };
   }
 
-  revalidatePath('/');
   return { tag: data as Tag };
 }
 

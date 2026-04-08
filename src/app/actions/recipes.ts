@@ -4,7 +4,10 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createRecipeSchema, type Recipe } from '@/lib/schemas/recipe';
+import type { Tag } from '@/lib/schemas/tag';
 import type { ExtractedRecipe } from '@/lib/schemas/import-job';
+
+export type RecipeWithTags = Recipe & { tags: Tag[] };
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 
@@ -84,6 +87,7 @@ export async function getRecipe(id: string): Promise<{ recipe?: Recipe; error?: 
     .from('recipes')
     .select('*')
     .eq('id', id)
+    .eq('user_id', user.id)
     .single();
 
   if (error || !data) {
@@ -126,6 +130,51 @@ export async function getUserRecipes(
   const recipes = hasMore ? data.slice(0, limit) : data;
 
   return { recipes: recipes as Recipe[], hasMore };
+}
+
+export async function getUserRecipesWithTags(
+  limit: number = 50,
+  cursor?: { created_at: string; id: string }
+): Promise<{ recipes?: RecipeWithTags[]; error?: string; hasMore?: boolean }> {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: 'Non authentifié' };
+  }
+
+  let query = supabase
+    .from('recipes')
+    .select('*, recipe_tags(tag_id, tags(*))')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(limit + 1);
+
+  if (cursor) {
+    query = query.or(`created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    return { error: 'Erreur lors de la récupération des recettes' };
+  }
+
+  const hasMore = data.length > limit;
+  const rawRecipes = hasMore ? data.slice(0, limit) : data;
+
+  const recipes: RecipeWithTags[] = rawRecipes.map((row) => {
+    const { recipe_tags, ...recipe } = row as typeof row & { recipe_tags: Array<{ tags: unknown }> };
+    const tags = (recipe_tags ?? []).flatMap((rt: { tags: unknown }) => {
+      const t = rt.tags;
+      if (!t || typeof t !== 'object' || Array.isArray(t)) return [];
+      return [t as Tag];
+    });
+    return { ...(recipe as Recipe), tags };
+  });
+
+  return { recipes, hasMore };
 }
 
 export async function updateRecipe(

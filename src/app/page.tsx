@@ -1,23 +1,18 @@
 import Link from 'next/link';
-import { getUserRecipes } from '@/app/actions/recipes';
-import { getRecipeTags } from '@/app/actions/tags';
+import { getUserRecipesWithTags } from '@/app/actions/recipes';
 import { InfiniteScroll } from './components/infinite-scroll';
 import { AppLayout } from './components/app-layout';
 import type { Tag } from '@/lib/schemas/tag';
 
 export default async function Home() {
-  const { recipes, error, hasMore } = await getUserRecipes(50);
+  // 1 seule requête Supabase au lieu de 1 + N
+  const { recipes, error, hasMore } = await getUserRecipesWithTags(50);
 
   const recipeTagsMap = new Map<string, Tag[]>();
   if (recipes) {
-    await Promise.all(
-      recipes.map(async (recipe) => {
-        const { tags } = await getRecipeTags(recipe.id);
-        if (tags) {
-          recipeTagsMap.set(recipe.id, tags);
-        }
-      })
-    );
+    for (const recipe of recipes) {
+      recipeTagsMap.set(recipe.id, recipe.tags);
+    }
   }
 
   return (
@@ -58,3 +53,4 @@ export default async function Home() {
     </AppLayout>
   );
 }
+
