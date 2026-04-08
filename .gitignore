@@ -42,3 +42,4 @@ next-env.d.ts
 
 # Instagram cookies (sensitive, do not commit)
 instagram-cookies.txt
+*.exe
