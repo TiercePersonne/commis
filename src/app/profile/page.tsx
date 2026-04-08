@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { AppLayout } from '@/app/components/app-layout';
-import { exportUserData, deleteAccount, hasSharedInstagramCookies } from '@/app/actions/profile';
+import { exportUserData, deleteAccount } from '@/app/actions/profile';
 import { logout } from '@/app/login/actions';
 
 export default function ProfilePage() {
@@ -11,11 +11,6 @@ export default function ProfilePage() {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [sharedCookiesActive, setSharedCookiesActive] = useState(false);
-
-  useEffect(() => {
-    hasSharedInstagramCookies().then(setSharedCookiesActive);
-  }, []);
 
   const handleExport = async () => {
     setExporting(true);
@@ -84,25 +79,6 @@ export default function ProfilePage() {
           )}
 
           <div className="space-y-6">
-            {/* Section Instagram */}
-            <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-light)] rounded-2xl p-6">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">🎬</span>
-                <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                  Import Instagram
-                </h2>
-                <span className={`ml-auto text-[12px] font-medium px-2 py-0.5 rounded-full ${
-                  sharedCookiesActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                }`}>
-                  {sharedCookiesActive ? 'Activé' : 'Non disponible'}
-                </span>
-              </div>
-              <p className="text-sm text-[var(--color-text-secondary)] mt-2">
-                {sharedCookiesActive
-                  ? "L'import de Reels Instagram est disponible."
-                  : "L'import de Reels Instagram n'est pas configuré."}
-              </p>
-            </div>
             <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-light)] rounded-2xl p-6">
               <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">
                 Exporter mes données

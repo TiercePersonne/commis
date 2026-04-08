@@ -26,9 +26,6 @@ export default async function Home() {
         <h1 className="text-[28px] font-serif font-bold text-[var(--color-text-primary)] pt-8 pb-2">
           Ma Collection
         </h1>
-        <p className="text-[14px] text-[var(--color-text-muted)] pb-6">
-          Grid visuel style Pinterest — cartes avec images de couverture
-        </p>
 
         {error && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 mb-6">
