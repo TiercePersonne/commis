@@ -412,3 +412,34 @@ export async function saveImportedRecipe(
   revalidatePath('/');
   return { data: { id: data.id }, error: null };
 }
+
+export async function updateRecipeRating(
+  recipeId: string,
+  rating: number | null
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: 'Non authentifié' };
+  }
+
+  // Vérifier la limite
+  if (rating !== null && (rating < 0 || rating > 5)) {
+    return { error: 'La note doit être comprise entre 0 et 5' };
+  }
+
+  const { error } = await supabase
+    .from('recipes')
+    .update({ rating })
+    .eq('id', recipeId)
+    .eq('user_id', user.id);
+
+  if (error) {
+    return { error: 'Erreur lors de la sauvegarde de la note' };
+  }
+
+  revalidatePath('/');
+  revalidatePath(`/recipes/${recipeId}`);
+  return {};
+}

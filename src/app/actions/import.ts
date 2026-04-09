@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { extractRecipeFromUrl, extractFromText, ImportError, IMPORT_ERROR_MESSAGES } from '@/lib/utils/import-web';
 import { extractRecipeFromReel, isInstagramReelUrl } from '@/lib/utils/import-reel';
+import { extractFromImage } from '@/lib/utils/import-image';
 import { getInstagramCookies } from '@/app/actions/profile';
 import type { ExtractedRecipe } from '@/lib/schemas/import-job';
 
@@ -191,3 +192,33 @@ export async function startImportFromReel(
     return { data: null, error: message };
   }
 }
+
+export async function startImportFromImage(
+  formData: FormData
+): Promise<ActionResult<{ recipe: ExtractedRecipe }>> {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Non authentifié' };
+
+  try {
+    const file = formData.get('image') as File | null;
+    if (!file) {
+      return { data: null, error: "Aucune image fournie" };
+    }
+
+    const buffer = await file.arrayBuffer();
+    const base64Image = Buffer.from(buffer).toString('base64');
+    const mimeType = file.type;
+
+    const extracted = await extractFromImage(base64Image, mimeType);
+    return { data: { recipe: extracted }, error: null };
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Une erreur inattendue s'est produite lors de l'analyse de l'image.";
+    return { data: null, error: message };
+  }
+}
+

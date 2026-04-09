@@ -6,53 +6,72 @@ import { AlertCircle } from 'lucide-react';
 import { AppLayout } from '@/app/components/app-layout';
 import { ImportSourceSelector } from '@/app/components/import-source-selector';
 import { RecipePreview } from '@/app/components/recipe-preview';
-import { startImport, startImportFromText, startImportFromReel } from '@/app/actions/import';
+import { startImport, startImportFromText, startImportFromReel, startImportFromImage } from '@/app/actions/import';
 import { saveImportedRecipe } from '@/app/actions/recipes';
-import { BulkImportView } from '@/app/components/bulk-import-view';
 import { loadDraft, clearDraft } from '@/lib/utils/draft';
 import type { ExtractedRecipe } from '@/lib/schemas/import-job';
 
-type PageState = 'idle' | 'loading' | 'loading-reel' | 'preview' | 'saving' | 'error' | 'bulk';
+type PageState = 'idle' | 'loading' | 'loading-reel' | 'loading-image' | 'preview' | 'saving' | 'error';
 
-function SkeletonReel() {
-  return (
-    <div className="mt-8 max-w-2xl">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="text-2xl">🎬</div>
-        <p className="text-[14px] text-[var(--color-text-secondary)] animate-pulse">
-          Transcription du Reel en cours… (peut prendre 30–60 secondes)
-        </p>
-      </div>
-      <div className="space-y-3">
-        {["Téléchargement de l'audio", 'Transcription par IA', 'Structuration de la recette'].map((step, i) => (
-          <div key={i} className="flex items-center gap-3 text-[13px] text-[var(--color-text-muted)]">
-            <div className="w-5 h-5 rounded-full border-2 border-[var(--color-border)] animate-pulse" />
-            {step}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+function SmartLoader({ source }: { source: 'web' | 'reel' | 'image' | 'text' }) {
+  const [progress, setProgress] = useState(0);
+  const [stepIndex, setStepIndex] = useState(0);
 
-function SkeletonImport() {
+  const icons = {
+    web: '🌐',
+    reel: '🎬',
+    image: '📸',
+    text: '📋'
+  };
+
+  const steps = {
+    web: ['Connexion au site...', 'Téléchargement de la page...', "Analyse par l'IA...", "Dressage de l'assiette..."],
+    reel: ['Téléchargement du Reel...', "Transcription par l'IA...", 'Analyse des instructions...', "Dressage de l'assiette..."],
+    image: ['Lecture de l\'image...', "Extraction des textes par l'IA...", 'Structuration des ingrédients...', "Dressage de l'assiette..."],
+    text: ['Lecture du texte...', 'Tri des informations...', 'Structuration des étapes...', "Dressage de l'assiette..."]
+  }[source];
+
+  useEffect(() => {
+    const duration = source === 'reel' ? 30000 : source === 'web' ? 12000 : 5000;
+    const intervalMs = 100;
+    const increment = (100 / (duration / intervalMs));
+
+    const progressTimer = setInterval(() => {
+      setProgress(p => {
+        const next = p + increment;
+        return next > 90 ? 90 + (next - 90) * 0.1 : next;
+      });
+    }, intervalMs);
+
+    const stepDuration = duration / steps.length;
+    const stepTimer = setInterval(() => {
+      setStepIndex(i => Math.min(i + 1, steps.length - 1));
+    }, stepDuration);
+
+    return () => {
+      clearInterval(progressTimer);
+      clearInterval(stepTimer);
+    };
+  }, [source, steps.length]);
+
   return (
-    <div className="mt-8 max-w-2xl">
-      <p className="text-[14px] text-[var(--color-text-secondary)] mb-4 animate-pulse">
-        Extraction de la recette en cours…
+    <div className="mt-12 max-w-lg mx-auto bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-[var(--radius-xl)] shadow-sm p-8 text-center animate-in fade-in zoom-in-95 duration-300">
+      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[var(--color-bg-secondary)] border border-[var(--color-border)] text-[var(--color-text-primary)] text-3xl mb-6 shadow-sm animate-bounce">
+        {icons[source]}
+      </div>
+      <h3 className="text-[17px] font-bold text-[var(--color-text-primary)] mb-2 transition-all">
+        {steps[stepIndex]}
+      </h3>
+      <p className="text-[13px] text-[var(--color-text-muted)] mb-8 h-4">
+        Veuillez patienter quelques instants...
       </p>
-      <div className="animate-pulse space-y-4">
-        <div className="h-8 bg-[var(--color-border)] rounded-[var(--radius-md)] w-2/3" />
-        <div className="space-y-2">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-4 bg-[var(--color-border-light)] rounded w-full" />
-          ))}
-        </div>
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-4 bg-[var(--color-border-light)] rounded w-5/6" />
-          ))}
-        </div>
+
+      {/* Progress Bar */}
+      <div className="h-2 w-full bg-[var(--color-bg-secondary)] rounded-full overflow-hidden">
+        <div 
+          className="h-full bg-[var(--color-accent)] transition-all ease-linear"
+          style={{ width: `${progress}%`, transitionDuration: '100ms' }}
+        />
       </div>
     </div>
   );
@@ -109,6 +128,21 @@ export default function ImportPage() {
     setPageState('loading');
 
     const result = await startImportFromText(text);
+    if (result.error) {
+      setImportError(result.error);
+      setPageState('error');
+      return;
+    }
+
+    setExtractedRecipe(result.data!.recipe);
+    setPageState('preview');
+  };
+
+  const handleImageImport = async (formData: FormData) => {
+    setImportError(null);
+    setPageState('loading-image');
+
+    const result = await startImportFromImage(formData);
     if (result.error) {
       setImportError(result.error);
       setPageState('error');
@@ -208,18 +242,15 @@ export default function ImportPage() {
             onImportStart={handleImportStart}
             onTextImport={handleTextImport}
             onReelImport={handleReelImport}
-            onBulkImport={() => setPageState('bulk')}
+            onImageImport={handleImageImport}
+            onBulkDone={handleBulkDone}
           />
         )}
 
-        {/* Import en masse */}
-        {pageState === 'bulk' && (
-          <BulkImportView onDone={handleBulkDone} />
-        )}
-
-        {/* Skeleton loading */}
-        {pageState === 'loading' && <SkeletonImport />}
-        {pageState === 'loading-reel' && <SkeletonReel />}
+        {/* Smart loading states */}
+        {pageState === 'loading' && <SmartLoader source="web" />}
+        {pageState === 'loading-reel' && <SmartLoader source="reel" />}
+        {pageState === 'loading-image' && <SmartLoader source="image" />}
 
         {/* Aperçu + correction */}
         {(pageState === 'preview' || pageState === 'saving') && extractedRecipe && (
@@ -233,26 +264,40 @@ export default function ImportPage() {
 
         {/* Erreur d'import */}
         {pageState === 'error' && (
-          <div className="mt-8 max-w-2xl p-6 bg-red-50 border border-red-200 rounded-[var(--radius-lg)]">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="text-red-500 mt-0.5 shrink-0" size={20} />
-              <div className="flex-1">
-                <p className="font-medium text-red-800">Import échoué</p>
-                <p className="text-sm text-red-700 mt-1">{importError}</p>
-              </div>
+          <div className="mt-8 max-w-xl mx-auto p-8 bg-[var(--color-bg-card)] border-2 border-red-100 rounded-[var(--radius-xl)] shadow-sm text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-50 text-red-500 mb-4">
+              <AlertCircle size={32} />
             </div>
-            <div className="flex gap-3 mt-4">
+            <h3 className="text-[18px] font-bold text-[var(--color-text-primary)] mb-2">Aïe, l'import a échoué</h3>
+            <p className="text-[14px] text-[var(--color-text-secondary)] mb-8 px-4">{importError}</p>
+
+            {importError?.includes('Impossible d\'extraire la recette depuis cette page') && (
+              <div className="mb-6 p-5 bg-orange-50 rounded-[var(--radius-lg)] border border-orange-100 text-left max-w-md mx-auto">
+                <p className="text-[14px] text-orange-900 font-bold mb-1">Astuce : Le site bloque notre robot 🤖</p>
+                <p className="text-[13px] text-orange-800 mb-4">
+                  Prenez simplement la recette en photo ou faites une capture d'écran, et utilisez notre outil de reconnaissance visuelle.
+                </p>
+                <button
+                  onClick={handleCancel}
+                  className="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-[var(--radius-md)] text-[13px] font-bold shadow-sm transition-colors w-full"
+                >
+                  Essayer l'import Photo
+                </button>
+              </div>
+            )}
+
+            <div className="flex justify-center gap-3">
               <button
                 onClick={handleRetry}
-                className="px-4 py-2 bg-[var(--color-accent)] text-white rounded-[var(--radius-sm)] hover:bg-[var(--accent-primary-hover)] text-sm font-medium transition-colors"
+                className="px-6 py-2.5 bg-[var(--color-text-primary)] text-[var(--color-bg-primary)] rounded-[var(--radius-md)] hover:bg-black/80 text-[14px] font-bold transition-all shadow-sm"
               >
                 Réessayer
               </button>
               <button
                 onClick={handleCancel}
-                className="px-4 py-2 border border-[var(--color-border)] text-[var(--color-text-secondary)] rounded-[var(--radius-sm)] hover:bg-[var(--color-bg-primary)] text-sm transition-colors"
+                className="px-6 py-2.5 bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded-[var(--radius-md)] hover:bg-[var(--color-border)] text-[14px] font-bold transition-all shadow-sm"
               >
-                Nouvelle URL
+                Nouvelle extraction
               </button>
             </div>
           </div>

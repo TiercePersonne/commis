@@ -9,6 +9,7 @@ import { AddToPlannerButton } from './add-to-planner-button';
 import { IngredientList } from '@/app/components/ingredient-list';
 import { RecipeNotes } from '@/app/components/recipe-notes';
 import { AppLayout } from '@/app/components/app-layout';
+import { RecipeRating } from '@/app/components/recipe-rating';
 
 export default async function RecipePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -23,11 +24,11 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
 
   return (
     <AppLayout>
-      <div className="px-10 pb-10">
-        <div className="max-w-3xl mx-auto pt-8">
+      <div className="px-5 md:px-10 pb-10">
+        <div className="max-w-3xl mx-auto pt-6 md:pt-8">
           <Link
             href="/"
-            className="text-[var(--color-accent)] hover:underline mb-6 inline-block text-sm"
+            className="text-[var(--color-accent)] hover:underline mb-4 md:mb-6 inline-block text-sm"
           >
             ← Retour aux recettes
           </Link>
@@ -36,19 +37,24 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
             <RecipeImage
               src={recipe.image_url}
               alt={recipe.title}
-              className="w-full h-72 rounded-3xl object-cover mb-6"
-              fallbackClassName="w-full h-72 rounded-3xl bg-gradient-to-br from-[#E8D5C4] to-[#D4B8A0] flex items-center justify-center text-[var(--color-text-muted)] text-5xl mb-6"
+              className="w-full h-56 md:h-72 rounded-3xl object-cover object-center mb-4 md:mb-6"
+              fallbackClassName="w-full h-56 md:h-72 rounded-3xl bg-gradient-to-br from-[#E8D5C4] to-[#D4B8A0] flex items-center justify-center text-[var(--color-text-muted)] text-5xl mb-4 md:mb-6"
             />
           ) : (
-            <div className="w-full h-72 rounded-3xl bg-gradient-to-br from-[#E8D5C4] to-[#D4B8A0] flex items-center justify-center text-[var(--color-text-muted)] text-5xl mb-6">
+            <div className="w-full h-56 md:h-72 rounded-3xl bg-gradient-to-br from-[#E8D5C4] to-[#D4B8A0] flex items-center justify-center text-[var(--color-text-muted)] text-5xl mb-4 md:mb-6">
               🍽️
             </div>
           )}
 
           <div className="mb-6">
-            <h1 className="text-[32px] font-serif font-bold text-[var(--color-text-primary)] mb-2 leading-tight">
-              {recipe.title}
-            </h1>
+            <div className="flex items-start justify-between gap-4 mb-2">
+              <h1 className="text-2xl md:text-[32px] font-serif font-bold text-[var(--color-text-primary)] leading-tight">
+                {recipe.title}
+              </h1>
+              <div className="shrink-0 pt-1">
+                <RecipeRating recipeId={recipe.id} initialRating={recipe.rating} />
+              </div>
+            </div>
             <div className="flex flex-wrap items-center gap-3 mb-4">
               <p className="text-[13px] text-[var(--color-text-muted)]">
                 Créée le {new Date(recipe.created_at).toLocaleDateString('fr-FR', {

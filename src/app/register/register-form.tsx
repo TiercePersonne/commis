@@ -1,14 +1,13 @@
 "use client";
 
 import { useActionState } from "react";
+import type { RegisterState } from "./actions";
+import { register } from "./actions";
 
-import type { LoginState } from "./actions";
-import { login } from "./actions";
+const initialState: RegisterState = { ok: false, message: "" };
 
-const initialState: LoginState = { ok: false, message: "" };
-
-export function LoginForm() {
-  const [state, formAction, pending] = useActionState(login, initialState);
+export function RegisterForm() {
+  const [state, formAction, pending] = useActionState(register, initialState);
 
   return (
     <form action={formAction} className="flex w-full max-w-sm flex-col gap-4">
@@ -27,18 +26,16 @@ export function LoginForm() {
       </div>
 
       <div className="flex flex-col gap-2">
-        <label htmlFor="password" className="text-sm font-medium flex justify-between items-center">
-          <span>Mot de passe</span>
-          <a href="/forgot-password" className="text-xs text-[var(--color-accent)] hover:underline font-normal">
-            Mot de passe oublié ?
-          </a>
+        <label htmlFor="password" className="text-sm font-medium">
+          Mot de passe
         </label>
         <input
           id="password"
           name="password"
           type="password"
-          autoComplete="current-password"
+          autoComplete="new-password"
           required
+          minLength={6}
           className="h-11 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-card)] px-4 text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-4 focus:ring-[rgba(196,112,75,0.12)]"
         />
       </div>
@@ -52,7 +49,7 @@ export function LoginForm() {
         disabled={pending}
         className="h-11 rounded-xl bg-[var(--color-accent)] px-4 font-medium text-white hover:bg-[var(--accent-primary-hover)] transition-colors disabled:opacity-60"
       >
-        Se connecter
+        S'inscrire
       </button>
     </form>
   );

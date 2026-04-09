@@ -1,21 +1,23 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { BulkImportView } from '@/app/components/bulk-import-view';
 
-type SelectedSource = 'web' | 'text' | 'reel' | null;
+type SelectedSource = 'web' | 'text' | 'reel' | 'image' | 'bulk' | null;
 
 interface ImportSourceSelectorProps {
   onImportStart?: (jobId: string, url: string) => void;
   onTextImport?: (text: string) => void;
   onReelImport?: (url: string) => void;
-  onBulkImport?: () => void;
+  onImageImport?: (formData: FormData) => void;
+  onBulkDone?: () => void;
 }
 
 function isValidUrl(url: string): boolean {
   return url.startsWith('http://') || url.startsWith('https://');
 }
 
-export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport, onBulkImport }: ImportSourceSelectorProps) {
+  export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport, onImageImport, onBulkDone }: ImportSourceSelectorProps) {
   const [selectedSource, setSelectedSource] = useState<SelectedSource>(null);
   const [url, setUrl] = useState('');
   const [urlError, setUrlError] = useState<string | null>(null);
@@ -24,7 +26,55 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
   const [pastedText, setPastedText] = useState('');
   const [isPending, startTransition] = useTransition();
 
-  const handleCardClick = (source: 'web' | 'text' | 'reel') => {
+  const compressImage = (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1200;
+          const MAX_HEIGHT = 1200;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpeg", { type: 'image/jpeg', lastModified: Date.now() }));
+              } else {
+                reject(new Error('Canvas to Blob failed'));
+              }
+            },
+            'image/jpeg',
+            0.75
+          );
+        };
+        img.onerror = (error) => reject(error);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const handleCardClick = (source: 'web' | 'text' | 'reel' | 'image') => {
     setSelectedSource(source === selectedSource ? null : source);
     setUrlError(null);
   };
@@ -77,115 +127,115 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
     });
   };
 
-  const cardBase = 'rounded-[var(--radius-lg)] border-2 bg-[var(--color-bg-card)] p-6 cursor-pointer transition-all select-none focus-visible:outline-none';
-  const cardActive = 'border-[var(--color-accent)]';
-  const cardInactive = 'border-[var(--color-border)] hover:border-[var(--color-accent)]/50';
+  const tabButtonClass = (isActive: boolean) => 
+    `flex-1 min-w-[100px] sm:min-w-[120px] py-4 px-3 text-[13px] font-semibold rounded-[var(--radius-lg)] flex flex-col items-center justify-center gap-2 transition-all ${
+      isActive 
+        ? 'bg-[var(--color-bg-card)] text-[var(--color-accent)] border-2 border-[var(--color-accent)] shadow-[0_4px_12px_rgba(0,0,0,0.05)] scale-[1.02]' 
+        : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-2 border-transparent hover:bg-[var(--color-bg-card)] hover:shadow-sm'
+    }`;
+
+  // Si on n'a sélectionné aucune source, on force 'web' par défaut dans l'interface (même si l'état est null)
+  const activeTab = selectedSource ?? 'web';
+
+  const handleTabClick = (source: 'web' | 'text' | 'reel' | 'image' | 'bulk') => {
+    setSelectedSource(source);
+    setUrlError(null);
+    setReelUrlError(null);
+  };
 
   return (
-    <div className="mt-6 space-y-4">
-      <p className="text-[14px] text-[var(--color-text-secondary)]">
-        Choisissez une source pour importer votre recette
-      </p>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-3xl">
-
-        {/* Carte Site web */}
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => handleCardClick('web')}
-          onKeyDown={(e) => e.key === 'Enter' && handleCardClick('web')}
-          aria-pressed={selectedSource === 'web'}
-          className={`${cardBase} ${selectedSource === 'web' ? cardActive : cardInactive}`}
-          style={selectedSource === 'web' ? { boxShadow: '0 0 0 1px var(--color-accent)' } : {}}
+    <div className="mt-8 max-w-2xl mx-auto">
+      
+      {/* Barre d'onglets au même niveau */}
+      <div className="flex flex-wrap gap-3 mb-8">
+        <button 
+          type="button"
+          onClick={() => handleTabClick('web')}
+          className={tabButtonClass(activeTab === 'web')}
         >
-          <div className="text-4xl mb-3">🌐</div>
-          <h3 className="font-semibold text-[var(--color-text-primary)] mb-1">Site web</h3>
-          <p className="text-[13px] text-[var(--color-text-muted)]">
-            Collez l&apos;URL d&apos;une page de recette
-          </p>
+          <span className="text-2xl mb-0.5">🌐</span>
+          Site Web
+        </button>
+        <button 
+          type="button"
+          onClick={() => handleTabClick('reel')}
+          className={tabButtonClass(activeTab === 'reel')}
+        >
+          <span className="text-2xl mb-0.5">🎬</span>
+          Reel Insta
+        </button>
+        <button 
+          type="button"
+          onClick={() => handleTabClick('image')}
+          className={tabButtonClass(activeTab === 'image')}
+        >
+          <span className="text-2xl mb-0.5">📸</span>
+          Photo
+        </button>
+        <button 
+          type="button"
+          onClick={() => handleTabClick('text')}
+          className={tabButtonClass(activeTab === 'text')}
+        >
+          <span className="text-2xl mb-0.5">📋</span>
+          Texte
+        </button>
+        <button 
+          type="button"
+          onClick={() => handleTabClick('bulk')}
+          className={tabButtonClass(false)}
+        >
+          <span className="text-2xl mb-0.5">📦</span>
+          En masse
+        </button>
+      </div>
 
-          {selectedSource === 'web' && (
-            <form onSubmit={handleUrlSubmit} className="mt-4" onClick={(e) => e.stopPropagation()}>
+      {/* Contenu de l'onglet actif */}
+      <div className="bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-[var(--radius-xl)] shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+        
+        {activeTab === 'web' && (
+          <div className="p-6 sm:p-8">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6 text-center sm:text-left">
+              <div className="w-12 h-12 shrink-0 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center text-2xl border border-blue-100">🌐</div>
+              <div>
+                <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">Importer depuis un site web</h4>
+                <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">Collez le lien d'un blog culinaire ou d'un site de recettes. L'IA lira la page pour vous.</p>
+              </div>
+            </div>
+            <form onSubmit={handleUrlSubmit} className="flex flex-col gap-3">
               <input
                 type="url"
                 value={url}
                 onChange={(e) => { setUrl(e.target.value); if (urlError) setUrlError(null); }}
-                placeholder="https://exemple.com/ma-recette"
+                placeholder="https://www.marmiton.org/recettes/..."
                 disabled={isPending}
                 autoFocus
-                className={`w-full px-3 py-2.5 text-[14px] border rounded-[var(--radius-sm)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] transition-colors disabled:opacity-50 ${
-                  urlError ? 'border-red-400' : 'border-[var(--color-border)] focus:border-[var(--color-accent)]'
+                className={`w-full px-4 py-3.5 text-[15px] border rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30 disabled:opacity-50 ${
+                  urlError ? 'border-red-400 bg-red-50' : 'border-[var(--color-border)] hover:border-[var(--color-border-hover)]'
                 }`}
               />
-              {urlError && <p className="mt-1.5 text-[12px] text-red-600">{urlError}</p>}
+              {urlError && <p className="text-[13px] text-red-600 pl-1 font-medium">{urlError}</p>}
               <button
                 type="submit"
                 disabled={isPending || !url.trim()}
-                className="mt-3 w-full px-4 py-2.5 bg-[var(--color-accent)] text-white text-[14px] font-medium rounded-[var(--radius-sm)] hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="w-full py-3.5 mt-2 bg-[var(--color-text-primary)] text-[var(--color-bg-primary)] text-[15px] font-bold rounded-[var(--radius-md)] shadow-md hover:bg-black/80 disabled:opacity-50 transition-all active:scale-[0.98]"
               >
-                {isPending ? 'Import en cours…' : 'Importer'}
+                Importer la recette
               </button>
             </form>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Carte Coller le texte */}
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => handleCardClick('text')}
-          onKeyDown={(e) => e.key === 'Enter' && handleCardClick('text')}
-          aria-pressed={selectedSource === 'text'}
-          className={`${cardBase} ${selectedSource === 'text' ? cardActive : cardInactive}`}
-          style={selectedSource === 'text' ? { boxShadow: '0 0 0 1px var(--color-accent)' } : {}}
-        >
-          <div className="text-4xl mb-3">📋</div>
-          <h3 className="font-semibold text-[var(--color-text-primary)] mb-1">Coller le texte</h3>
-          <p className="text-[13px] text-[var(--color-text-muted)]">
-            Copiez le contenu de la page et collez-le ici
-          </p>
-
-          {selectedSource === 'text' && (
-            <form onSubmit={handleTextSubmit} className="mt-4" onClick={(e) => e.stopPropagation()}>
-              <textarea
-                value={pastedText}
-                onChange={(e) => setPastedText(e.target.value)}
-                placeholder="Collez ici le texte de la recette (titre, ingrédients, étapes)…"
-                disabled={isPending}
-                autoFocus
-                rows={6}
-                className="w-full px-3 py-2.5 text-[13px] border border-[var(--color-border)] rounded-[var(--radius-sm)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] resize-y transition-colors disabled:opacity-50 focus:border-[var(--color-accent)]"
-              />
-              <button
-                type="submit"
-                disabled={isPending || !pastedText.trim()}
-                className="mt-3 w-full px-4 py-2.5 bg-[var(--color-accent)] text-white text-[14px] font-medium rounded-[var(--radius-sm)] hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isPending ? 'Extraction en cours…' : 'Extraire la recette'}
-              </button>
-            </form>
-          )}
-        </div>
-
-        {/* Carte Reel Instagram */}
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => handleCardClick('reel')}
-          onKeyDown={(e) => e.key === 'Enter' && handleCardClick('reel')}
-          aria-pressed={selectedSource === 'reel'}
-          className={`${cardBase} ${selectedSource === 'reel' ? cardActive : cardInactive}`}
-          style={selectedSource === 'reel' ? { boxShadow: '0 0 0 1px var(--color-accent)' } : {}}
-        >
-          <div className="text-4xl mb-3">🎬</div>
-          <h3 className="font-semibold text-[var(--color-text-primary)] mb-1">Reel Instagram</h3>
-          <p className="text-[13px] text-[var(--color-text-muted)]">
-            Collez un lien de Reel pour transcrire la recette
-          </p>
-
-          {selectedSource === 'reel' && (
-            <form onSubmit={handleReelSubmit} className="mt-4" onClick={(e) => e.stopPropagation()}>
+        {activeTab === 'reel' && (
+          <div className="p-6 sm:p-8">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6 text-center sm:text-left">
+              <div className="w-12 h-12 shrink-0 bg-pink-50 text-pink-500 rounded-full flex items-center justify-center text-2xl border border-pink-100">🎬</div>
+              <div>
+                <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">Reel Instagram</h4>
+                <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">Collez le lien du Reel. L'IA écoutera l'audio et analysera les textes à l'écran.</p>
+              </div>
+            </div>
+            <form onSubmit={handleReelSubmit} className="flex flex-col gap-3">
               <input
                 type="url"
                 value={reelUrl}
@@ -193,36 +243,110 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
                 placeholder="https://www.instagram.com/reel/..."
                 disabled={isPending}
                 autoFocus
-                className={`w-full px-3 py-2.5 text-[14px] border rounded-[var(--radius-sm)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] transition-colors disabled:opacity-50 ${
-                  reelUrlError ? 'border-red-400' : 'border-[var(--color-border)] focus:border-[var(--color-accent)]'
+                className={`w-full px-4 py-3.5 text-[15px] border rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30 disabled:opacity-50 ${
+                  reelUrlError ? 'border-red-400 bg-red-50' : 'border-[var(--color-border)] hover:border-[var(--color-border-hover)]'
                 }`}
               />
-              {reelUrlError && <p className="mt-1.5 text-[12px] text-red-600">{reelUrlError}</p>}
+              {reelUrlError && <p className="text-[13px] text-red-600 pl-1 font-medium">{reelUrlError}</p>}
               <button
                 type="submit"
                 disabled={isPending || !reelUrl.trim()}
-                className="mt-3 w-full px-4 py-2.5 bg-[var(--color-accent)] text-white text-[14px] font-medium rounded-[var(--radius-sm)] hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="w-full py-3.5 mt-2 bg-gradient-to-r from-pink-500 hover:from-pink-600 to-orange-400 hover:to-orange-500 text-white text-[15px] font-bold rounded-[var(--radius-md)] shadow-md disabled:opacity-50 transition-all active:scale-[0.98]"
               >
-                {isPending ? 'Transcription en cours…' : 'Importer le Reel'}
+                Transcrire ce Reel
               </button>
             </form>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Carte Import en masse */}
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => onBulkImport?.()}
-          onKeyDown={(e) => e.key === 'Enter' && onBulkImport?.()}
-          className={`${cardBase} ${cardInactive}`}
-        >
-          <div className="text-4xl mb-3">📦</div>
-          <h3 className="font-semibold text-[var(--color-text-primary)] mb-1">Import en masse</h3>
-          <p className="text-[13px] text-[var(--color-text-muted)]">
-            Collez plusieurs URLs d&apos;un coup (sites web et Reels)
-          </p>
-        </div>
+        {activeTab === 'image' && (
+          <div className="p-6 sm:p-8 flex flex-col items-center text-center">
+            <div className="w-14 h-14 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center text-3xl mb-4 border border-orange-100 shadow-sm">📸</div>
+            <h4 className="text-[18px] font-bold text-[var(--color-text-primary)] mb-2">Scanner une image</h4>
+            <p className="text-[14px] text-[var(--color-text-secondary)] mb-8 max-w-sm">
+              Prenez en photo une page de livre ou soumettez une capture d'écran de votre téléphone.
+            </p>
+            
+            <label className={`w-full max-w-xs relative overflow-hidden flex flex-col items-center justify-center border-2 border-dashed rounded-[var(--radius-xl)] px-6 py-10 transition-colors cursor-pointer group ${isPending ? 'opacity-50 pointer-events-none' : 'border-[var(--color-border)] hover:border-[var(--color-accent)] hover:bg-[var(--color-bg-secondary)]'}`}>
+              <div className="text-3xl mb-3 text-[var(--color-text-muted)] group-hover:text-[var(--color-accent)] transition-colors">➕</div>
+              <span className="text-[14px] font-bold text-[var(--color-text-primary)]">Choisir une image</span>
+              <span className="text-[12px] text-[var(--color-text-muted)] mt-1">Appareil photo ou Galerie</span>
+              
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                disabled={isPending}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+
+                  let fileToUpload = file;
+                  try {
+                    fileToUpload = await compressImage(file);
+                  } catch (err) {
+                    console.error('Image compression failed', err);
+                  }
+
+                  const formData = new FormData();
+                  formData.append('image', fileToUpload);
+                  startTransition(async () => {
+                    if (onImageImport) {
+                      await onImageImport(formData);
+                    }
+                  });
+                }}
+              />
+            </label>
+          </div>
+        )}
+
+        {activeTab === 'text' && (
+          <div className="p-6 sm:p-8">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6 text-center sm:text-left">
+              <div className="w-12 h-12 shrink-0 bg-yellow-50 text-yellow-600 rounded-full flex items-center justify-center text-2xl border border-yellow-100">📋</div>
+              <div>
+                <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">Texte copié</h4>
+                <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">Collez n'importe quel texte désorganisé contenant des ingrédients d'une recette.</p>
+              </div>
+            </div>
+            <form onSubmit={handleTextSubmit} className="flex flex-col gap-3">
+              <textarea
+                value={pastedText}
+                onChange={(e) => setPastedText(e.target.value)}
+                placeholder="Exemple: 200g de farine, 3 oeufs. Cuire 20 min..."
+                disabled={isPending}
+                autoFocus
+                rows={6}
+                className="w-full px-4 py-3 text-[14px] border border-[var(--color-border)] rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] resize-y focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30 disabled:opacity-50 transition-colors"
+              />
+              <button
+                type="submit"
+                disabled={isPending || !pastedText.trim()}
+                className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[15px] font-bold rounded-[var(--radius-md)] shadow-md hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 transition-all active:scale-[0.98]"
+              >
+                Extraire les informations
+              </button>
+            </form>
+          </div>
+        )}
+
+        {activeTab === 'bulk' && (
+          <div className="p-6 sm:p-8">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6 text-center sm:text-left">
+              <div className="w-12 h-12 shrink-0 bg-gray-50 text-gray-500 rounded-full flex items-center justify-center text-2xl border border-gray-100">📦</div>
+              <div>
+                <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">Importer en masse</h4>
+                <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">
+                  Collez vos liens à la suite pour automatiser la lecture.
+                </p>
+              </div>
+            </div>
+            
+            <BulkImportView onDone={onBulkDone ?? (() => {})} />
+          </div>
+        )}
 
       </div>
     </div>

@@ -96,7 +96,7 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
   const allDone = entries !== null && !running;
 
   return (
-    <div className="mt-6 max-w-2xl">
+    <div className="w-full">
       {!entries ? (
         <div className="space-y-4">
           <p className="text-[14px] text-[var(--color-text-secondary)]">
@@ -113,15 +113,9 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
             <button
               onClick={handleStart}
               disabled={urlCount === 0}
-              className="px-5 py-2.5 bg-[var(--color-accent)] text-white rounded-xl font-medium text-[14px] hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-5 py-2.5 bg-[var(--color-text-primary)] text-[var(--color-bg-primary)] rounded-xl font-medium text-[14px] hover:bg-black/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Importer {urlCount > 0 ? `${urlCount} recette${urlCount > 1 ? 's' : ''}` : ''}
-            </button>
-            <button
-              onClick={onDone}
-              className="px-4 py-2.5 border border-[var(--color-border)] text-[var(--color-text-secondary)] rounded-xl text-[14px] hover:bg-[var(--color-bg-primary)] transition-colors"
-            >
-              Annuler
             </button>
           </div>
         </div>

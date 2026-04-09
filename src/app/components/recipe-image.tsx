@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { getImageProxySrc } from '@/lib/utils/image';
 
 interface RecipeImageProps {
@@ -11,7 +12,7 @@ interface RecipeImageProps {
 }
 
 export function RecipeImage({ src, alt, className, fallbackClassName }: RecipeImageProps) {
-  const [imgSrc, setImgSrc] = useState(src);
+  const [useNative, setUseNative] = useState(false);
   const [failed, setFailed] = useState(false);
 
   if (failed) {
@@ -22,18 +23,29 @@ export function RecipeImage({ src, alt, className, fallbackClassName }: RecipeIm
     );
   }
 
+  if (useNative) {
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className={className}
+        referrerPolicy="no-referrer"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
   return (
-    <img
-      src={imgSrc}
-      alt={alt}
-      className={className}
-      onError={() => {
-        if (imgSrc === src) {
-          setImgSrc(getImageProxySrc(src));
-        } else {
-          setFailed(true);
-        }
-      }}
-    />
+    <div className={`relative overflow-hidden ${className}`}>
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        sizes="(max-width: 1024px) 100vw, 800px"
+        priority
+        className="object-cover object-center"
+        onError={() => setUseNative(true)}
+      />
+    </div>
   );
 }

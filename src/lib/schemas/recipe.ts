@@ -25,6 +25,7 @@ export type Recipe = {
   source_type?: 'web' | 'reel' | 'manual';
   image_url?: string | null;
   confidence?: 'complete' | 'partial' | null;
+  rating?: number | null;
   created_at: string;
   updated_at: string;
 };
