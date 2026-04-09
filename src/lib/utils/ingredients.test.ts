@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseIngredient, aggregateIngredients } from './ingredients';
+import { parseIngredient, aggregateIngredients, aggregateIngredientsList } from './ingredients';
 
 describe('ingredients util', () => {
   it('parses typical ingredients', () => {
@@ -7,7 +7,7 @@ describe('ingredients util', () => {
       expect(parseIngredient('1.5 kg de pommes')).toEqual({ quantity: 1.5, unit: 'kg', name: 'pomme', original: '1.5 kg de pommes' });
       expect(parseIngredient('3 oeufs')).toEqual({ quantity: 3, unit: null, name: 'oeuf', original: '3 oeufs' });
       expect(parseIngredient('un oignon')).toEqual({ quantity: 1, unit: null, name: 'oignon', original: 'un oignon' });
-      expect(parseIngredient('1/2 botte de radis')).toEqual({ quantity: 0.5, unit: 'botte', name: 'radi', original: '1/2 botte de radis' }); // Naive slice removes 's' as expected, edge case for 'radis'. Let's see later.
+      expect(parseIngredient('1/2 botte de radis')).toEqual({ quantity: 0.5, unit: 'botte', name: 'radis', original: '1/2 botte de radis' });
       expect(parseIngredient('sel')).toEqual({ quantity: null, unit: null, name: 'sel', original: 'sel' });
       expect(parseIngredient('une pincée de sel')).toEqual({ quantity: 1, unit: 'pincée', name: 'sel', original: 'une pincée de sel' });
       expect(parseIngredient('150 ml d\'huile d\'olive')).toEqual({ quantity: 150, unit: 'ml', name: 'huile d\'olive', original: '150 ml d\'huile d\'olive' });
@@ -24,8 +24,18 @@ describe('ingredients util', () => {
           "sel",
           "une pincée de sel"
       ];
+      
       const result = aggregateIngredients(inputs);
-      console.log("Aggregated:\\n", result);
       expect(result).toContain('300 g de farine');
+      expect(result).toContain('3 oeuf');
+      expect(result).toContain('1 oignon');
+      expect(result).toContain('1,5 kg de pomme');
+      expect(result).toContain('0,5 botte de radis');
+      expect(result).toContain('Sel');
+      expect(result).toContain('1 pincée de sel');
+      
+      const resultList = aggregateIngredientsList(inputs);
+      expect(resultList).toContain('300 g de farine');
+      expect(resultList).toHaveLength(7);
   });
 });

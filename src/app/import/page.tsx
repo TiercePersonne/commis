@@ -268,20 +268,20 @@ export default function ImportPage() {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-50 text-red-500 mb-4">
               <AlertCircle size={32} />
             </div>
-            <h3 className="text-[18px] font-bold text-[var(--color-text-primary)] mb-2">Aïe, l'import a échoué</h3>
+            <h3 className="text-[18px] font-bold text-[var(--color-text-primary)] mb-2">Aïe, l&apos;import a échoué</h3>
             <p className="text-[14px] text-[var(--color-text-secondary)] mb-8 px-4">{importError}</p>
 
             {importError?.includes('Impossible d\'extraire la recette depuis cette page') && (
               <div className="mb-6 p-5 bg-orange-50 rounded-[var(--radius-lg)] border border-orange-100 text-left max-w-md mx-auto">
                 <p className="text-[14px] text-orange-900 font-bold mb-1">Astuce : Le site bloque notre robot 🤖</p>
                 <p className="text-[13px] text-orange-800 mb-4">
-                  Prenez simplement la recette en photo ou faites une capture d'écran, et utilisez notre outil de reconnaissance visuelle.
+                  Prenez simplement la recette en photo ou faites une capture d&apos;écran, et utilisez notre outil de reconnaissance visuelle.
                 </p>
                 <button
                   onClick={handleCancel}
                   className="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-[var(--radius-md)] text-[13px] font-bold shadow-sm transition-colors w-full"
                 >
-                  Essayer l'import Photo
+                  Essayer l&apos;import Photo
                 </button>
               </div>
             )}

@@ -67,7 +67,7 @@ export function parseIngredient(text: string): ParsedIngredient {
     return { quantity: null, unit: null, name: original, original };
   }
 
-  let [_, rawQuantity, rawUnit, rawName] = match;
+  const [, rawQuantity, rawUnit, rawName] = match;
 
   const quantity = parseQuantity(rawQuantity);
   const unit = normalizeUnit(rawUnit);
@@ -112,7 +112,7 @@ export function aggregateIngredientsList(ingredientsStr: string[]): string[] {
         qtyStr = item.quantity.toString().replace('.', ',');
       }
       
-      let unitStr = item.unit ? ` ${item.unit}` : '';
+      const unitStr = item.unit ? ` ${item.unit}` : '';
       let separator = '';
       if (item.unit) {
           separator = item.name.match(/^[aeiouy]/i) ? " d'" : " de ";

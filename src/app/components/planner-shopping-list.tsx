@@ -3,7 +3,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import type { MealPlanWithRecipe } from '@/lib/schemas/meal-plan';
 import { aggregateIngredientsList } from '@/lib/utils/ingredients';
-import { Clipboard, Check } from 'lucide-react';
 
 interface PlannerShoppingListProps {
   mealPlans: MealPlanWithRecipe[];
@@ -112,7 +111,7 @@ export function PlannerShoppingList({ mealPlans }: PlannerShoppingListProps) {
 
       {selectedCount === 0 && (
         <p className="text-[14px] text-[var(--color-text-secondary)] mt-8 text-center italic opacity-80">
-          Sélectionnez au moins un ingrédient pour l'ajouter à votre presse-papiers
+          Sélectionnez au moins un ingrédient pour l&apos;ajouter à votre presse-papiers
         </p>
       )}
     </div>

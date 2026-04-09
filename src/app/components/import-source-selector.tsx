@@ -199,7 +199,7 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
               <div className="w-12 h-12 shrink-0 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center text-2xl border border-blue-100">🌐</div>
               <div>
                 <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">Importer depuis un site web</h4>
-                <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">Collez le lien d'un blog culinaire ou d'un site de recettes. L'IA lira la page pour vous.</p>
+                <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">Collez le lien d&apos;un blog culinaire ou d&apos;un site de recettes. L&apos;IA lira la page pour vous.</p>
               </div>
             </div>
             <form onSubmit={handleUrlSubmit} className="flex flex-col gap-3">
@@ -232,7 +232,7 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
               <div className="w-12 h-12 shrink-0 bg-purple-50 text-purple-500 rounded-full flex items-center justify-center text-2xl border border-purple-100">🎬</div>
               <div>
                 <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">Instagram, TikTok ou YouTube</h4>
-                <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">Collez le lien de la vidéo. L'IA écoutera l'audio et analysera l'image de couverture.</p>
+                <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">Collez le lien de la vidéo. L&apos;IA écoutera l&apos;audio et analysera l&apos;image de couverture.</p>
               </div>
             </div>
             <form onSubmit={handleReelSubmit} className="flex flex-col gap-3">
@@ -264,7 +264,7 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
             <div className="w-14 h-14 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center text-3xl mb-4 border border-orange-100 shadow-sm">📸</div>
             <h4 className="text-[18px] font-bold text-[var(--color-text-primary)] mb-2">Scanner une image</h4>
             <p className="text-[14px] text-[var(--color-text-secondary)] mb-8 max-w-sm">
-              Prenez en photo une page de livre ou soumettez une capture d'écran de votre téléphone.
+              Prenez en photo une page de livre ou soumettez une capture d&apos;écran de votre téléphone.
             </p>
             
             <label className={`w-full max-w-xs relative overflow-hidden flex flex-col items-center justify-center border-2 border-dashed rounded-[var(--radius-xl)] px-6 py-10 transition-colors cursor-pointer group ${isPending ? 'opacity-50 pointer-events-none' : 'border-[var(--color-border)] hover:border-[var(--color-accent)] hover:bg-[var(--color-bg-secondary)]'}`}>
@@ -308,7 +308,7 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
               <div className="w-12 h-12 shrink-0 bg-yellow-50 text-yellow-600 rounded-full flex items-center justify-center text-2xl border border-yellow-100">📋</div>
               <div>
                 <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">Texte copié</h4>
-                <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">Collez n'importe quel texte désorganisé contenant des ingrédients d'une recette.</p>
+                <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">Collez n&apos;importe quel texte désorganisé contenant des ingrédients d&apos;une recette.</p>
               </div>
             </div>
             <form onSubmit={handleTextSubmit} className="flex flex-col gap-3">

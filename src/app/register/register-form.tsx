@@ -21,7 +21,7 @@ export function RegisterForm() {
         </h3>
         <p className="text-sm text-[var(--color-text-muted)] leading-relaxed">
           Un email de confirmation vous a été envoyé. 
-          Veuillez cliquer sur le lien qu'il contient pour finaliser la création de votre compte.
+          Veuillez cliquer sur le lien qu&apos;il contient pour finaliser la création de votre compte.
         </p>
       </div>
     );
@@ -67,7 +67,7 @@ export function RegisterForm() {
         disabled={pending}
         className="h-11 rounded-xl bg-[var(--color-accent)] px-4 font-medium text-white hover:bg-[var(--accent-primary-hover)] transition-colors disabled:opacity-60"
       >
-        S'inscrire
+        S&apos;inscrire
       </button>
     </form>
   );
