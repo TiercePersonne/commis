@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { extractRecipeFromUrl, extractFromText, ImportError, IMPORT_ERROR_MESSAGES } from '@/lib/utils/import-web';
-import { extractRecipeFromReel, isInstagramReelUrl } from '@/lib/utils/import-reel';
+import { extractRecipeFromReel, isSupportedVideoUrl } from '@/lib/utils/import-reel';
 import { extractFromImage } from '@/lib/utils/import-image';
 import { getInstagramCookies } from '@/app/actions/profile';
 import type { ExtractedRecipe } from '@/lib/schemas/import-job';
@@ -143,8 +143,8 @@ export async function startImportFromReel(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, error: 'Non authentifié' };
 
-  if (!isInstagramReelUrl(url)) {
-    return { data: null, error: "URL invalide. Collez un lien de Reel Instagram (instagram.com/reel/...)" };
+  if (!isSupportedVideoUrl(url)) {
+    return { data: null, error: "URL invalide. Collez un lien Instagram, TikTok ou YouTube." };
   }
 
   const { data: job, error: createError } = await supabase
@@ -182,7 +182,7 @@ export async function startImportFromReel(
     const message =
       error instanceof ImportError
         ? error.message
-        : "Une erreur inattendue s'est produite lors de l'import du Reel.";
+        : "Une erreur inattendue s'est produite lors de l'import de la vidéo.";
 
     await supabase
       .from('import_jobs')

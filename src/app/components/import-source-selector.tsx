@@ -101,11 +101,11 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
 
     const trimmed = reelUrl.trim();
     if (!isValidUrl(trimmed)) {
-      setReelUrlError("URL invalide. Collez un lien Instagram commençant par https://");
+      setReelUrlError("URL invalide. Collez un lien Instagram, TikTok ou YouTube commençant par https://");
       return;
     }
-    if (!trimmed.includes('instagram.com')) {
-      setReelUrlError("Ce lien ne semble pas être un lien Instagram.");
+    if (!trimmed.includes('instagram.com') && !trimmed.includes('tiktok.com') && !trimmed.includes('youtube.com') && !trimmed.includes('youtu.be')) {
+      setReelUrlError("Ce lien ne semble pas être un lien Instagram, TikTok ou YouTube valide.");
       return;
     }
 
@@ -162,7 +162,7 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
           className={tabButtonClass(activeTab === 'reel')}
         >
           <span className="text-2xl mb-0.5">🎬</span>
-          Reel Insta
+          Vidéo Courte
         </button>
         <button 
           type="button"
@@ -218,7 +218,7 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
               <button
                 type="submit"
                 disabled={isPending || !url.trim()}
-                className="w-full py-3.5 mt-2 bg-[var(--color-text-primary)] text-[var(--color-bg-primary)] text-[15px] font-bold rounded-[var(--radius-md)] shadow-md hover:bg-black/80 disabled:opacity-50 transition-all active:scale-[0.98]"
+                className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[15px] font-bold rounded-[var(--radius-md)] shadow-md hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 transition-all active:scale-[0.98]"
               >
                 Importer la recette
               </button>
@@ -229,10 +229,10 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
         {activeTab === 'reel' && (
           <div className="p-6 sm:p-8">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6 text-center sm:text-left">
-              <div className="w-12 h-12 shrink-0 bg-pink-50 text-pink-500 rounded-full flex items-center justify-center text-2xl border border-pink-100">🎬</div>
+              <div className="w-12 h-12 shrink-0 bg-purple-50 text-purple-500 rounded-full flex items-center justify-center text-2xl border border-purple-100">🎬</div>
               <div>
-                <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">Reel Instagram</h4>
-                <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">Collez le lien du Reel. L'IA écoutera l'audio et analysera les textes à l'écran.</p>
+                <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">Instagram, TikTok ou YouTube</h4>
+                <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">Collez le lien de la vidéo. L'IA écoutera l'audio et analysera l'image de couverture.</p>
               </div>
             </div>
             <form onSubmit={handleReelSubmit} className="flex flex-col gap-3">
@@ -240,7 +240,7 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
                 type="url"
                 value={reelUrl}
                 onChange={(e) => { setReelUrl(e.target.value); if (reelUrlError) setReelUrlError(null); }}
-                placeholder="https://www.instagram.com/reel/..."
+                placeholder="Lien Instagram, TikTok, YouTube..."
                 disabled={isPending}
                 autoFocus
                 className={`w-full px-4 py-3.5 text-[15px] border rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30 disabled:opacity-50 ${
@@ -251,9 +251,9 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
               <button
                 type="submit"
                 disabled={isPending || !reelUrl.trim()}
-                className="w-full py-3.5 mt-2 bg-gradient-to-r from-pink-500 hover:from-pink-600 to-orange-400 hover:to-orange-500 text-white text-[15px] font-bold rounded-[var(--radius-md)] shadow-md disabled:opacity-50 transition-all active:scale-[0.98]"
+                className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[15px] font-bold rounded-[var(--radius-md)] shadow-md hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 transition-all active:scale-[0.98]"
               >
-                Transcrire ce Reel
+                Transcrire cette vidéo
               </button>
             </form>
           </div>

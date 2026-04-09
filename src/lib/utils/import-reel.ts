@@ -5,9 +5,9 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import type { ExtractedRecipe } from '@/lib/schemas/import-job';
 import { ImportError, IMPORT_ERROR_MESSAGES } from './import-web';
-import { isInstagramReelUrl } from './url-utils';
+import { isSupportedVideoUrl } from './url-utils';
 
-export { isInstagramReelUrl };
+export { isSupportedVideoUrl };
 
 const execFileAsync = promisify(execFile);
 
@@ -21,17 +21,21 @@ async function downloadReelAudio(
   try {
     const localCookiesPath = join(process.cwd(), 'instagram-cookies.txt');
     let cookiesPath: string | null = null;
+    
+    const isInstagram = reelUrl.includes('instagram.com');
 
-    const effectiveCookies = cookiesContent || process.env.INSTAGRAM_SHARED_COOKIES || null;
+    if (isInstagram) {
+      const effectiveCookies = cookiesContent || process.env.INSTAGRAM_SHARED_COOKIES || null;
 
-    try {
-      await access(localCookiesPath);
-      cookiesPath = localCookiesPath;
-    } catch {
-      if (effectiveCookies) {
-        const tmpCookiesPath = join(tmpDir, 'cookies.txt');
-        await writeFile(tmpCookiesPath, effectiveCookies, 'utf8');
-        cookiesPath = tmpCookiesPath;
+      try {
+        await access(localCookiesPath);
+        cookiesPath = localCookiesPath;
+      } catch {
+        if (effectiveCookies) {
+          const tmpCookiesPath = join(tmpDir, 'cookies.txt');
+          await writeFile(tmpCookiesPath, effectiveCookies, 'utf8');
+          cookiesPath = tmpCookiesPath;
+        }
       }
     }
 
@@ -124,7 +128,7 @@ async function extractRecipeFromAudio(
   const MAX_BYTES = 19 * 1024 * 1024;
   if (audioBuffer.byteLength > MAX_BYTES) {
     throw new ImportError(
-      "Le Reel est trop long pour être traité (limite : ~19 Mo d'audio).",
+      "La vidéo est trop longue pour être traitée (limite : ~19 Mo d'audio).",
       'EXTRACTION_FAILED'
     );
   }
@@ -142,12 +146,12 @@ async function extractRecipeFromAudio(
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
   const descriptionSection = description
-    ? `\n\nDescription/légende du post Instagram :\n${description}`
+    ? `\n\nDescription/légende de la vidéo :\n${description}`
     : '';
 
   const prompt = `Tu es un extracteur de recettes de cuisine. TOUTES TES RÉPONSES DOIVENT ÊTRE EN FRANÇAIS, quelle que soit la langue de l'audio ou de la description.
 
-Écoute cet audio de Reel Instagram et extrait la recette présentée.${descriptionSection}
+Écoute cet audio issu d'une vidéo (par ex. Instagram, TikTok ou YouTube) et extrait la recette présentée.${descriptionSection}
 
 Retourne UNIQUEMENT un objet JSON valide avec ces champs (TOUT en français) :
 {
@@ -200,7 +204,7 @@ export async function extractRecipeFromReel(
   onStatusUpdate: (status: string) => Promise<void>,
   cookiesContent?: string | null
 ): Promise<ExtractedRecipe> {
-  if (!isInstagramReelUrl(reelUrl)) {
+  if (!isSupportedVideoUrl(reelUrl)) {
     throw new ImportError(IMPORT_ERROR_MESSAGES.INVALID_URL, 'INVALID_URL');
   }
 

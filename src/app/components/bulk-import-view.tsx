@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
-import { isInstagramReelUrl } from '@/lib/utils/url-utils';
+import { isSupportedVideoUrl } from '@/lib/utils/url-utils';
 import { startImport, startImportFromReel } from '@/app/actions/import';
 import { saveImportedRecipe } from '@/app/actions/recipes';
 import type { ExtractedRecipe } from '@/lib/schemas/import-job';
@@ -34,7 +34,7 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
       .filter((l) => l.startsWith('http'))
       .map((url) => ({
         url,
-        type: isInstagramReelUrl(url) ? 'reel' : 'web',
+        type: isSupportedVideoUrl(url) ? 'reel' : 'web',
         status: 'pending' as UrlStatus,
       }));
   };
@@ -63,7 +63,7 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
 
         if (entry.type === 'reel') {
           const result = await startImportFromReel(entry.url);
-          if (result.error || !result.data) throw new Error(result.error ?? 'Échec import Reel');
+          if (result.error || !result.data) throw new Error(result.error ?? 'Échec import vidéo');
           recipe = result.data.recipe;
         } else {
           const result = await startImport(entry.url);
@@ -100,7 +100,7 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
       {!entries ? (
         <div className="space-y-4">
           <p className="text-[14px] text-[var(--color-text-secondary)]">
-            Collez plusieurs URLs (une par ligne) — liens de sites web et Reels Instagram acceptés.
+            Collez plusieurs URLs (une par ligne) — liens de sites web, Reels Instagram, vidéos TikTok ou YouTube acceptés.
           </p>
           <textarea
             value={rawText}
@@ -113,7 +113,7 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
             <button
               onClick={handleStart}
               disabled={urlCount === 0}
-              className="px-5 py-2.5 bg-[var(--color-text-primary)] text-[var(--color-bg-primary)] rounded-xl font-medium text-[14px] hover:bg-black/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-5 py-2.5 bg-[var(--color-accent)] text-white rounded-xl font-medium text-[14px] hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Importer {urlCount > 0 ? `${urlCount} recette${urlCount > 1 ? 's' : ''}` : ''}
             </button>
@@ -163,7 +163,7 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
                   <p className="text-[13px] text-[var(--color-text-muted)] truncate">{entry.url}</p>
                   {entry.status === 'importing' && (
                     <p className="text-[12px] text-[var(--color-accent)] mt-0.5">
-                      {entry.type === 'reel' ? 'Transcription Reel…' : 'Extraction web…'}
+                      {entry.type === 'reel' ? 'Transcription vidéo…' : 'Extraction web…'}
                     </p>
                   )}
                   {entry.status === 'saving' && (
