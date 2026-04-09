@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type ForgotPasswordState =
@@ -17,9 +18,13 @@ export async function forgotPassword(
   }
 
   const supabase = await createSupabaseServerClient();
+  const headersList = await headers();
+  const origin = headersList.get("origin") || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
   // Reset password sends an email. If the user does not exist, Supabase might not return an error depending on security settings.
-  const { error } = await supabase.auth.resetPasswordForEmail(email);
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/callback?next=/update-password`,
+  });
 
   if (error) {
     return {

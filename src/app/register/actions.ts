@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type RegisterState =
@@ -20,9 +20,15 @@ export async function register(
 
   const supabase = await createSupabaseServerClient();
 
+  const headersList = await headers();
+  const origin = headersList.get("origin") || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
   const { error } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      emailRedirectTo: `${origin}/auth/callback`,
+    },
   });
 
   if (error) {
@@ -32,5 +38,5 @@ export async function register(
     };
   }
 
-  redirect("/");
+  return { ok: true };
 }
