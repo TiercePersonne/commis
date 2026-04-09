@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { BulkImportView } from '@/app/components/bulk-import-view';
+import { BulkImportView } from './bulk-import-view';
 
 type SelectedSource = 'web' | 'text' | 'reel' | 'image' | 'bulk' | null;
 
@@ -17,7 +17,7 @@ function isValidUrl(url: string): boolean {
   return url.startsWith('http://') || url.startsWith('https://');
 }
 
-  export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport, onImageImport, onBulkDone }: ImportSourceSelectorProps) {
+export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport, onImageImport, onBulkDone }: ImportSourceSelectorProps) {
   const [selectedSource, setSelectedSource] = useState<SelectedSource>(null);
   const [url, setUrl] = useState('');
   const [urlError, setUrlError] = useState<string | null>(null);

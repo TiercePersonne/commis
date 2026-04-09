@@ -1,16 +1,40 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+
 import type { Recipe } from '@/lib/schemas/recipe';
 import type { Tag } from '@/lib/schemas/tag';
-import { getImageSrc, getImageProxySrc } from '@/lib/utils/image';
+import { getImageSrc } from '@/lib/utils/image';
 import { toSentenceCase } from '@/lib/utils/text';
 
 interface RecipeFiltersProps {
   recipes: Recipe[];
   recipeTagsMap: Map<string, Tag[]>;
+}
+
+function RecipeCardImage({ src, alt }: { src: string | null | undefined; alt: string }) {
+  const [failed, setFailed] = React.useState(false);
+
+  if (!src || failed) {
+    return (
+      <div className="w-full h-44 bg-gradient-to-br from-[var(--color-bg-primary)] to-[var(--color-border)] flex items-center justify-center text-[var(--color-text-muted)] text-4xl">
+        🍽️
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full h-44">
+      <img
+        src={src}
+        alt={alt}
+        className="w-full h-full object-cover object-center"
+        referrerPolicy="no-referrer"
+        onError={() => setFailed(true)}
+      />
+    </div>
+  );
 }
 
 export function RecipeFilters({ recipes, recipeTagsMap }: RecipeFiltersProps) {
@@ -159,36 +183,7 @@ export function RecipeFilters({ recipes, recipeTagsMap }: RecipeFiltersProps) {
                 href={`/recipes/${recipe.id}`}
                 className="block bg-[var(--color-bg-card)] rounded-2xl overflow-hidden border border-[var(--color-border-light)] shadow-[0_1px_3px_rgba(44,24,16,0.06)] hover:shadow-[0_4px_12px_rgba(44,24,16,0.08)] hover:-translate-y-0.5 transition-all"
               >
-                {recipe.image_url ? (
-                  <div className="relative w-full h-44">
-                    <Image
-                      src={getImageSrc(recipe.image_url)}
-                      alt={recipe.title}
-                      fill
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                      className="object-cover object-center"
-                      onError={(e) => {
-                        const img = e.currentTarget as HTMLImageElement;
-                        if (!img.dataset.nativeFallback) {
-                          img.dataset.nativeFallback = '1';
-                          img.src = recipe.image_url!;
-                          img.srcset = '';
-                          img.referrerPolicy = 'no-referrer';
-                        } else {
-                          if (img.parentElement) {
-                            img.parentElement.style.display = 'none';
-                            if (img.parentElement.nextElementSibling) {
-                              (img.parentElement.nextElementSibling as HTMLElement).style.display = 'flex';
-                            }
-                          }
-                        }
-                      }}
-                    />
-                  </div>
-                ) : null}
-                <div className="w-full h-44 bg-gradient-to-br from-[var(--color-bg-primary)] to-[var(--color-border)] items-center justify-center text-[var(--color-text-muted)] text-4xl" style={{ display: recipe.image_url ? 'none' : 'flex' }}>
-                  🍽️
-                </div>
+                <RecipeCardImage src={recipe.image_url} alt={recipe.title} />
                 
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2 mb-2">

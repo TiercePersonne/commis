@@ -9,14 +9,15 @@ function getSubmitButton(container: HTMLElement) {
 describe('ImportSourceSelector', () => {
   it('affiche les trois cartes source', () => {
     render(<ImportSourceSelector />);
-    expect(screen.getByText('Site web')).toBeDefined();
-    expect(screen.getByText('Coller le texte')).toBeDefined();
-    expect(screen.getByText('Reel Instagram')).toBeDefined();
+    expect(screen.getByText('Site Web')).toBeDefined();
+    expect(screen.getByText('Texte')).toBeDefined();
+    expect(screen.getByText('Reel Insta')).toBeDefined();
+    expect(screen.getByText('En masse')).toBeDefined();
   });
 
   it('révèle le champ URL Reel quand on clique sur la carte Reel', () => {
     render(<ImportSourceSelector />);
-    const reelCard = screen.getByRole('button', { name: /reel instagram/i });
+    const reelCard = screen.getByRole('button', { name: /reel insta/i });
     fireEvent.click(reelCard);
     expect(screen.getByPlaceholderText(/instagram\.com\/reel/i)).toBeDefined();
   });
@@ -25,7 +26,7 @@ describe('ImportSourceSelector', () => {
     render(<ImportSourceSelector />);
     const webCard = screen.getByRole('button', { name: /site web/i });
     fireEvent.click(webCard);
-    expect(screen.getByPlaceholderText(/https:\/\/exemple/)).toBeDefined();
+    expect(screen.getByPlaceholderText(/marmiton\.org/)).toBeDefined();
   });
 
   it('affiche une erreur pour une URL invalide', () => {
@@ -33,7 +34,7 @@ describe('ImportSourceSelector', () => {
     const webCard = screen.getByRole('button', { name: /site web/i });
     fireEvent.click(webCard);
 
-    const input = screen.getByPlaceholderText(/https:\/\/exemple/);
+    const input = screen.getByPlaceholderText(/marmiton\.org/);
     fireEvent.change(input, { target: { value: 'pas-une-url' } });
 
     const form = container.querySelector('form') as HTMLFormElement;
@@ -47,7 +48,7 @@ describe('ImportSourceSelector', () => {
     const webCard = screen.getByRole('button', { name: /site web/i });
     fireEvent.click(webCard);
 
-    const input = screen.getByPlaceholderText(/https:\/\/exemple/);
+    const input = screen.getByPlaceholderText(/marmiton\.org/);
     fireEvent.change(input, { target: { value: 'https://example.com/recette' } });
 
     const form = container.querySelector('form') as HTMLFormElement;
@@ -56,13 +57,23 @@ describe('ImportSourceSelector', () => {
     expect(screen.queryByText(/URL invalide/i)).toBeNull();
   });
 
-  it('masque le champ URL quand on reclique sur la carte sélectionnée', () => {
+  it('permet de basculer entre les différents onglets', () => {
     render(<ImportSourceSelector />);
+    
+    // Par défaut 'Site Web' est sélectionné
+    expect(screen.getByPlaceholderText(/marmiton\.org/)).toBeDefined();
+
+    // Cliquer sur 'Texte'
+    const textCard = screen.getByRole('button', { name: /texte/i });
+    fireEvent.click(textCard);
+    
+    // Le champ URL doit disparaître, le champ texte doit apparaître
+    expect(screen.queryByPlaceholderText(/marmiton\.org/)).toBeNull();
+    expect(screen.getByPlaceholderText(/Exemple: 200g de farine/i)).toBeDefined();
+
+    // Revenir sur 'Site Web'
     const webCard = screen.getByRole('button', { name: /site web/i });
     fireEvent.click(webCard);
-    expect(screen.getByPlaceholderText(/https:\/\/exemple/)).toBeDefined();
-
-    fireEvent.click(webCard);
-    expect(screen.queryByPlaceholderText(/https:\/\/exemple/)).toBeNull();
+    expect(screen.getByPlaceholderText(/marmiton\.org/)).toBeDefined();
   });
 });
