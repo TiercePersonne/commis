@@ -6,6 +6,7 @@ import { RecipePickerDialog } from '@/app/components/recipe-picker-dialog';
 import { AppLayout } from '@/app/components/app-layout';
 import { getMealPlan } from '@/app/actions/meal-plans';
 import { getMonday, formatDate } from '@/lib/utils/date';
+import { PlannerShoppingList } from '@/app/components/planner-shopping-list';
 import type { MealPlanWithRecipe } from '@/lib/schemas/meal-plan';
 
 export default function PlannerPage() {
@@ -54,6 +55,8 @@ export default function PlannerPage() {
   const handleSlotClick = (day: number, mealType: 'lunch' | 'dinner') => {
     setSelectedSlot({ day, mealType });
   };
+
+
 
   const getWeekDisplay = () => {
     if (!currentWeekStart) return '';
@@ -118,11 +121,16 @@ export default function PlannerPage() {
               <div className="h-96 bg-gray-200 rounded-xl"></div>
             </div>
           ) : (
-            <MealPlannerGrid
-              weekStart={currentWeekStart}
-              mealPlans={mealPlans}
-              onSlotClick={handleSlotClick}
-            />
+            <>
+              <MealPlannerGrid
+                weekStart={currentWeekStart}
+                mealPlans={mealPlans}
+                onSlotClick={handleSlotClick}
+              />
+              {!loading && !error && mealPlans.length > 0 && (
+                <PlannerShoppingList mealPlans={mealPlans} />
+              )}
+            </>
           )}
 
           {selectedSlot && (

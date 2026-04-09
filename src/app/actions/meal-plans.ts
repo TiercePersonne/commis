@@ -28,7 +28,8 @@ export async function getMealPlan(weekStart: string): Promise<{
       recipe:recipes!inner (
         id,
         title,
-        image_url
+        image_url,
+        ingredients
       )
     `)
     .eq('user_id', user.id)

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { RecipeItem } from './recipe';
 
 export const mealTypeSchema = z.enum(['lunch', 'dinner']);
 
@@ -27,5 +28,6 @@ export type MealPlanWithRecipe = MealPlan & {
     id: string;
     title: string;
     image_url?: string;
+    ingredients?: RecipeItem[];
   };
 };
