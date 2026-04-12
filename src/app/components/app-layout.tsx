@@ -2,9 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState } from 'react';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const isActive = (path: string) => {
     if (path === '/') {
@@ -53,16 +55,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="flex flex-col min-h-[100dvh] bg-[var(--color-bg-primary)] pb-[100px] md:pb-0">
+    <div className="flex flex-col min-h-[100dvh] bg-[var(--color-bg-primary)]">
+      {/* Floating Header Pill */}
       <header
-        className="fixed top-0 left-0 right-0 z-50 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border)] px-6 py-3 flex items-center justify-center md:justify-between"
-        style={{ boxShadow: '0 1px 3px rgba(44, 24, 16, 0.06)' }}
+        className="fixed top-4 left-4 right-4 md:left-8 md:right-8 z-50 bg-[var(--color-bg-card)]/90 backdrop-blur-md rounded-[20px] border border-[var(--color-border)] px-4 md:px-6 py-3 flex items-center justify-between transition-all"
+        style={{ boxShadow: '0 8px 30px -10px rgba(44, 24, 16, 0.1)' }}
       >
-        <Link href="/" className="text-[20px] font-serif font-bold text-[var(--color-accent)]">
+        <Link href="/" className="text-[20px] font-serif font-bold text-[var(--color-accent)] pl-2">
           Commis
         </Link>
         
-        <nav className="hidden md:flex items-center gap-1 bg-[var(--color-bg-primary)] rounded-[12px] p-1 border border-[var(--color-border-light)]">
+        {/* Desktop Nav */}
+        <nav className="hidden md:flex items-center gap-2">
           {navItems.map((item) => (
             <Link
               key={item.href}
@@ -87,38 +91,62 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
         </nav>
+
+        {/* Mobile Hamburger Toggle */}
+        <button 
+          className="md:hidden p-2 -mr-1 text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] rounded-xl transition-colors"
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          aria-label="Toggle menu"
+        >
+          {isMenuOpen ? (
+            <svg fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ) : (
+            <svg fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M12 17.25h8.25" />
+            </svg>
+          )}
+        </button>
       </header>
 
-      {/* Floating Bottom Navigation for Mobile (Pill Design) */}
-      <nav className="md:hidden fixed z-50 bg-[var(--color-bg-card)]/90 backdrop-blur-md border border-[var(--color-border)] px-2 py-2 flex items-center justify-around w-[92%] max-w-[400px] rounded-2xl left-1/2 -translate-x-1/2"
-           style={{ 
-             bottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)',
-             boxShadow: '0 10px 25px -5px rgba(44, 24, 16, 0.1), 0 8px 10px -6px rgba(44, 24, 16, 0.05)'
-           }}>
-        {navItems.map((item) => {
-          const active = isActive(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex flex-col items-center justify-center w-[72px] h-14 rounded-xl transition-colors ${
-                active 
-                  ? 'text-[var(--color-accent)] bg-[var(--color-bg-primary)]' 
-                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]'
-              }`}
-            >
-              <div className={`mb-1 transition-transform ${active ? 'scale-110' : ''}`}>
-                {item.icon}
-              </div>
-              <span className={`text-[10px] ${active ? 'font-semibold' : 'font-medium'}`}>
-                {item.label}
-              </span>
-            </Link>
-          );
-        })}
-      </nav>
+      {/* Mobile Drawer Overlay */}
+      {isMenuOpen && (
+        <div 
+          className="md:hidden fixed inset-0 z-40 bg-black/10 backdrop-blur-sm"
+          onClick={() => setIsMenuOpen(false)}
+        >
+          <nav 
+            className="absolute top-[80px] right-4 w-[220px] bg-[var(--color-bg-card)]/95 backdrop-blur-md border border-[var(--color-border)] rounded-2xl p-3 flex flex-col gap-2"
+            style={{ boxShadow: '0 10px 40px -10px rgba(44, 24, 16, 0.2)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {navItems.map((item) => {
+              const active = isActive(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setIsMenuOpen(false)}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-[14px] font-medium transition-all ${
+                    active 
+                      ? 'bg-[var(--color-bg-primary)] text-[var(--color-accent)]' 
+                      : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text-primary)]'
+                  }`}
+                >
+                  <div className={`${active ? 'scale-110 text-[var(--color-accent)]' : 'text-[var(--color-text-secondary)]'}`}>
+                    {item.icon}
+                  </div>
+                  <span className="text-[14px]">{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+      )}
+
       
-      <main className="pt-16 md:pt-20">
+      <main className="pt-24 md:pt-28 pb-10">
         {children}
       </main>
     </div>

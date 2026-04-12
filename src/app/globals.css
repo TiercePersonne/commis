@@ -23,12 +23,13 @@
   --font-serif: var(--font-lora);
 }
 
-body {
+html, body {
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
   font-family: var(--font-poppins), system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
   overflow-x: hidden;
+  max-width: 100vw;
 }
 
 button:focus-visible,

@@ -144,16 +144,16 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
   };
 
   return (
-    <div className="mt-8 max-w-2xl mx-auto">
-      
-      {/* Barre d'onglets au même niveau */}
-      <div className="flex flex-wrap gap-3 mb-8">
+    <div className="mt-4 md:mt-8 max-w-2xl mx-auto flex flex-col-reverse gap-6">
+
+      {/* Barre d'onglets au même niveau - maintenant affichée en dessous grâce à flex-col-reverse */}
+      <div className="flex flex-wrap gap-2 md:gap-3">
         <button 
           type="button"
           onClick={() => handleTabClick('web')}
           className={tabButtonClass(activeTab === 'web')}
         >
-          <span className="text-2xl mb-0.5">🌐</span>
+          <span className="text-xl md:text-2xl mb-0.5">🌐</span>
           Site Web
         </button>
         <button 
@@ -161,7 +161,7 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
           onClick={() => handleTabClick('reel')}
           className={tabButtonClass(activeTab === 'reel')}
         >
-          <span className="text-2xl mb-0.5">🎬</span>
+          <span className="text-xl md:text-2xl mb-0.5">🎬</span>
           Vidéo Courte
         </button>
         <button 
@@ -169,7 +169,7 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
           onClick={() => handleTabClick('image')}
           className={tabButtonClass(activeTab === 'image')}
         >
-          <span className="text-2xl mb-0.5">📸</span>
+          <span className="text-xl md:text-2xl mb-0.5">📸</span>
           Photo
         </button>
         <button 
@@ -177,7 +177,7 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
           onClick={() => handleTabClick('text')}
           className={tabButtonClass(activeTab === 'text')}
         >
-          <span className="text-2xl mb-0.5">📋</span>
+          <span className="text-xl md:text-2xl mb-0.5">📋</span>
           Texte
         </button>
         <button 
@@ -185,12 +185,12 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
           onClick={() => handleTabClick('bulk')}
           className={tabButtonClass(false)}
         >
-          <span className="text-2xl mb-0.5">📦</span>
+          <span className="text-xl md:text-2xl mb-0.5">📦</span>
           En masse
         </button>
       </div>
 
-      {/* Contenu de l'onglet actif */}
+      {/* Contenu de l'onglet actif (Affiché au dessus par flex-col-reverse) */}
       <div className="bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-[var(--radius-xl)] shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
         
         {activeTab === 'web' && (
