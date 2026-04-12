@@ -56,16 +56,16 @@ export function MealPlannerGrid({ weekStart, mealPlans, onSlotClick }: MealPlann
                 const isRemoving = removingSlot === slotKey;
 
                 return (
-                  <div key={slotKey} className="relative w-full rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-light)] shadow-sm overflow-hidden flex flex-row h-[100px]">
+                  <div key={slotKey} className="relative w-full rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-light)] shadow-sm overflow-hidden flex flex-row h-[80px]">
                     {mealPlan ? (
                       <>
-                        <Link href={`/recipes/${mealPlan.recipe.id}`} className="block relative h-full w-[100px] shrink-0 border-r border-[var(--color-border-light)]">
+                        <Link href={`/recipes/${mealPlan.recipe.id}`} className="block relative h-full w-[80px] shrink-0 border-r border-[var(--color-border-light)]">
                           {mealPlan.recipe.image_url ? (
                             <Image
                               src={getImageSrc(mealPlan.recipe.image_url)}
                               alt={mealPlan.recipe.title}
                               fill
-                              sizes="(max-width: 768px) 100px, 100px"
+                              sizes="(max-width: 768px) 80px, 80px"
                               className="object-cover object-center"
                               onError={(e) => {
                                 const img = e.currentTarget as HTMLImageElement;
@@ -113,12 +113,12 @@ export function MealPlannerGrid({ weekStart, mealPlans, onSlotClick }: MealPlann
                     ) : (
                       <button
                         onClick={() => onSlotClick(dayIndex, key)}
-                        className="w-full h-full flex items-center px-4 hover:bg-[var(--color-bg-secondary)] transition-colors text-left"
+                        className="w-full h-full flex items-center px-2 hover:bg-[var(--color-bg-secondary)] transition-colors text-left"
                       >
-                        <div className="w-[100px] shrink-0 h-full flex flex-col items-center justify-center border-r border-dashed border-[var(--color-border)] opacity-60">
+                        <div className="w-[80px] shrink-0 h-full flex flex-col items-center justify-center border-r border-dashed border-[var(--color-border)] opacity-60">
                           <span className="text-2xl text-[var(--color-text-secondary)]">+</span>
                         </div>
-                        <div className="flex-1 p-3 px-4">
+                        <div className="flex-1 p-3 px-3">
                           <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-text-muted)]">{label}</span>
                           <span className="block text-sm font-medium text-[var(--color-text-secondary)] mt-1">Ajouter une recette</span>
                         </div>

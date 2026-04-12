@@ -53,7 +53,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-[var(--color-bg-primary)] pb-[80px] md:pb-0">
+    <div className="flex flex-col min-h-[100dvh] bg-[var(--color-bg-primary)] pb-[100px] md:pb-0">
       <header
         className="fixed top-0 left-0 right-0 z-50 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border)] px-6 py-3 flex items-center justify-center md:justify-between"
         style={{ boxShadow: '0 1px 3px rgba(44, 24, 16, 0.06)' }}
@@ -90,8 +90,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Bottom Navigation for Mobile */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[var(--color-bg-secondary)] border-t border-[var(--color-border)] px-2 py-2 pb-safe flex items-center justify-around"
-           style={{ boxShadow: '0 -1px 3px rgba(44, 24, 16, 0.06)', paddingBottom: 'env(safe-area-inset-bottom, 8px)' }}>
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[var(--color-bg-secondary)] border-t border-[var(--color-border)] px-2 py-2 flex items-center justify-around"
+           style={{ boxShadow: '0 -1px 3px rgba(44, 24, 16, 0.06)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
         {navItems.map((item) => {
           const active = isActive(item.href);
           return (

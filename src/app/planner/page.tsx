@@ -80,33 +80,35 @@ export default function PlannerPage() {
 
   return (
     <AppLayout>
-      <div className="px-10 pb-10">
-        <div className="max-w-7xl mx-auto pt-8">
-          <div className="mb-6">
-            <h1 className="text-3xl font-serif text-[var(--color-text-primary)] mb-4">
+      <div className="px-4 md:px-10 pb-20 md:pb-10">
+        <div className="max-w-7xl mx-auto pt-4 md:pt-8">
+          <div className="mb-4 md:mb-6">
+            <h1 className="text-2xl md:text-3xl font-serif text-[var(--color-text-primary)] mb-4 text-center md:text-left">
               Ma Semaine de Repas
             </h1>
             
-            <div className="flex items-center justify-between mb-4 gap-4">
-              <button
-                onClick={handlePreviousWeek}
-                className="inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-[var(--color-text-primary)] bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-xl hover:bg-[var(--color-bg-secondary)] transition-colors"
-                aria-label="Semaine précédente"
-              >
-                ← Semaine précédente
-              </button>
+            <div className="flex flex-col md:flex-row items-center justify-between mb-4 gap-3 md:gap-4">
+              <div className="flex w-full md:w-auto justify-between gap-2">
+                <button
+                  onClick={handlePreviousWeek}
+                  className="flex-1 md:flex-none inline-flex items-center justify-center px-3 md:px-4 py-2.5 text-xs md:text-sm font-medium text-[var(--color-text-primary)] bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-xl hover:bg-[var(--color-bg-secondary)] transition-colors"
+                  aria-label="Semaine précédente"
+                >
+                  ← Prec.
+                </button>
+                <button
+                  onClick={handleNextWeek}
+                  className="flex-1 md:flex-none inline-flex items-center justify-center px-3 md:px-4 py-2.5 text-xs md:text-sm font-medium text-[var(--color-text-primary)] bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-xl hover:bg-[var(--color-bg-secondary)] transition-colors"
+                  aria-label="Semaine suivante"
+                >
+                  Suiv. →
+                </button>
+              </div>
               
-              <h2 className="text-lg font-medium text-[var(--color-text-primary)] text-center">
+              <h2 className="text-sm md:text-lg font-medium text-[var(--color-text-primary)] text-center order-first md:order-none w-full md:w-auto">
                 {getWeekDisplay()}
               </h2>
               
-              <button
-                onClick={handleNextWeek}
-                className="inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-[var(--color-text-primary)] bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-xl hover:bg-[var(--color-bg-secondary)] transition-colors"
-                aria-label="Semaine suivante"
-              >
-                Semaine suivante →
-              </button>
             </div>
           </div>
 

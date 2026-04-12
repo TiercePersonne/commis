@@ -106,8 +106,7 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
             value={rawText}
             onChange={(e) => setRawText(e.target.value)}
             placeholder={`https://exemple.com/recette-1\nhttps://www.instagram.com/reel/ABC123/\nhttps://exemple.com/recette-2`}
-            rows={8}
-            className="w-full px-3 py-2.5 text-[13px] font-mono border border-[var(--color-border)] rounded-xl bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)] outline-none resize-none"
+            className="w-full px-3 py-2.5 text-[13px] font-mono border border-[var(--color-border)] rounded-xl bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)] outline-none resize-none h-32 md:h-48"
           />
           <div className="flex items-center gap-3">
             <button
