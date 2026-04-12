@@ -18,9 +18,6 @@ export default async function Home() {
   return (
     <AppLayout>
       <div className="px-10 pb-10">
-        <h1 className="text-[28px] font-serif font-bold text-[var(--color-text-primary)] pt-8 pb-2">
-          Ma Collection
-        </h1>
 
         {error && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 mb-6">
