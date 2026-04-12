@@ -89,19 +89,22 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </nav>
       </header>
 
-      {/* Bottom Navigation for Mobile */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[var(--color-bg-secondary)] border-t border-[var(--color-border)] px-2 py-2 flex items-center justify-around"
-           style={{ boxShadow: '0 -1px 3px rgba(44, 24, 16, 0.06)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
+      {/* Floating Bottom Navigation for Mobile (Pill Design) */}
+      <nav className="md:hidden fixed z-50 bg-[var(--color-bg-card)]/90 backdrop-blur-md border border-[var(--color-border)] px-2 py-2 flex items-center justify-around w-[92%] max-w-[400px] rounded-2xl left-1/2 -translate-x-1/2"
+           style={{ 
+             bottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)',
+             boxShadow: '0 10px 25px -5px rgba(44, 24, 16, 0.1), 0 8px 10px -6px rgba(44, 24, 16, 0.05)'
+           }}>
         {navItems.map((item) => {
           const active = isActive(item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center justify-center w-[72px] h-14 rounded-2xl transition-colors ${
+              className={`flex flex-col items-center justify-center w-[72px] h-14 rounded-xl transition-colors ${
                 active 
-                  ? 'text-[var(--color-accent)]' 
-                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-primary)]'
+                  ? 'text-[var(--color-accent)] bg-[var(--color-bg-primary)]' 
+                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]'
               }`}
             >
               <div className={`mb-1 transition-transform ${active ? 'scale-110' : ''}`}>
