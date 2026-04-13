@@ -209,7 +209,6 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
                 onChange={(e) => { setUrl(e.target.value); if (urlError) setUrlError(null); }}
                 placeholder="https://www.marmiton.org/recettes/..."
                 disabled={isPending}
-                autoFocus
                 className={`w-full px-4 py-3.5 text-[15px] border rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30 disabled:opacity-50 ${
                   urlError ? 'border-red-400 bg-red-50' : 'border-[var(--color-border)] hover:border-[var(--color-border-hover)]'
                 }`}
@@ -242,7 +241,6 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
                 onChange={(e) => { setReelUrl(e.target.value); if (reelUrlError) setReelUrlError(null); }}
                 placeholder="Lien Instagram, TikTok, YouTube..."
                 disabled={isPending}
-                autoFocus
                 className={`w-full px-4 py-3.5 text-[15px] border rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30 disabled:opacity-50 ${
                   reelUrlError ? 'border-red-400 bg-red-50' : 'border-[var(--color-border)] hover:border-[var(--color-border-hover)]'
                 }`}
@@ -317,7 +315,6 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
                 onChange={(e) => setPastedText(e.target.value)}
                 placeholder="Exemple: 200g de farine, 3 oeufs. Cuire 20 min..."
                 disabled={isPending}
-                autoFocus
                 rows={6}
                 className="w-full px-4 py-3 text-[14px] border border-[var(--color-border)] rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] resize-y focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30 disabled:opacity-50 transition-colors"
               />
