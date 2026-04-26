@@ -20,6 +20,8 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+# S'assurer que le dossier public existe (certains projets n'en ont pas)
+RUN mkdir -p public
 RUN npm run build
 
 # ===========================
@@ -51,6 +53,7 @@ RUN addgroup --system --gid 1001 nodejs \
 # Copier uniquement les artefacts nécessaires depuis le builder
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# public/ est créé dans le builder même si vide, donc ce COPY ne plantera jamais
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 ENV NODE_ENV=production
