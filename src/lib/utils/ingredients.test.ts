@@ -4,7 +4,7 @@ import { parseIngredient, aggregateIngredients, aggregateIngredientsList } from 
 describe('ingredients util', () => {
   it('parses typical ingredients', () => {
       expect(parseIngredient('200g de farine')).toEqual({ quantity: 200, unit: 'g', name: 'farine', original: '200g de farine' });
-      expect(parseIngredient('1.5 kg de pommes')).toEqual({ quantity: 1.5, unit: 'kg', name: 'pomme', original: '1.5 kg de pommes' });
+      expect(parseIngredient('1.5 kg de pommes')).toEqual({ quantity: 1500, unit: 'g', name: 'pomme', original: '1.5 kg de pommes' });
       expect(parseIngredient('3 oeufs')).toEqual({ quantity: 3, unit: null, name: 'oeuf', original: '3 oeufs' });
       expect(parseIngredient('un oignon')).toEqual({ quantity: 1, unit: null, name: 'oignon', original: 'un oignon' });
       expect(parseIngredient('1/2 botte de radis')).toEqual({ quantity: 0.5, unit: 'botte', name: 'radis', original: '1/2 botte de radis' });

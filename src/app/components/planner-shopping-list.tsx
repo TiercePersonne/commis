@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import type { MealPlanWithRecipe } from '@/lib/schemas/meal-plan';
-import { aggregateIngredientsList } from '@/lib/utils/ingredients';
+import { aggregateIngredientsListWithRecipes } from '@/lib/utils/ingredients';
+import { Info } from 'lucide-react';
 
 interface PlannerShoppingListProps {
   mealPlans: MealPlanWithRecipe[];
@@ -11,13 +12,15 @@ interface PlannerShoppingListProps {
 export function PlannerShoppingList({ mealPlans }: PlannerShoppingListProps) {
   const [copying, setCopying] = useState(false);
   const [selectedIngredients, setSelectedIngredients] = useState<Set<number>>(new Set());
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
-  // Derive the list of aggregated ingredients
   const aggregatedList = useMemo(() => {
-    const allIngredientsStr = mealPlans.flatMap(plan => 
-      plan.recipe.ingredients ? plan.recipe.ingredients.map(ing => ing.text) : []
+    const ingredientsWithSource = mealPlans.flatMap(plan => 
+      plan.recipe.ingredients 
+        ? plan.recipe.ingredients.map(ing => ({ text: ing.text, recipeTitle: plan.recipe.title })) 
+        : []
     );
-    return aggregateIngredientsList(allIngredientsStr);
+    return aggregateIngredientsListWithRecipes(ingredientsWithSource);
   }, [mealPlans]);
 
   // Select all by default when list changes
@@ -48,6 +51,7 @@ export function PlannerShoppingList({ mealPlans }: PlannerShoppingListProps) {
 
     const selectedTexts = aggregatedList
       .filter((_, index) => selectedIngredients.has(index))
+      .map(item => item.text)
       .join('\n');
 
     try {
@@ -81,30 +85,64 @@ export function PlannerShoppingList({ mealPlans }: PlannerShoppingListProps) {
         {aggregatedList.map((ingredient, index) => {
           const isSelected = selectedIngredients.has(index);
           return (
-            <label key={index} className="flex items-center gap-3 cursor-pointer py-1.5 px-2 rounded-xl hover:bg-[var(--color-bg-secondary)] transition-colors group">
-              <div
-                className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                  isSelected
-                    ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-white'
-                    : 'border-[var(--color-border)] group-hover:border-[var(--color-accent)]'
-                }`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  toggleIngredient(index);
-                }}
-              >
-                {isSelected && <span className="text-xs font-bold leading-none">✓</span>}
+            <div key={index} className="relative group">
+              <label className="flex items-center gap-3 cursor-pointer py-1.5 px-2 rounded-xl hover:bg-[var(--color-bg-secondary)] transition-colors w-full group/label">
+                <div
+                  className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                    isSelected
+                      ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-white'
+                      : 'border-[var(--color-border)] group-hover/label:border-[var(--color-accent)]'
+                  }`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    toggleIngredient(index);
+                  }}
+                >
+                  {isSelected && <span className="text-xs font-bold leading-none">✓</span>}
+                </div>
+                <span
+                  className={`flex-1 text-[15px] transition-all font-medium select-none truncate pr-2 ${
+                    isSelected
+                      ? 'text-[var(--color-text-primary)]'
+                      : 'text-[var(--color-text-muted)] line-through'
+                  }`}
+                >
+                  {ingredient.text}
+                </span>
+
+                <div 
+                  className="p-1.5 -m-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors rounded-full hover:bg-[var(--color-bg-primary)] cursor-pointer md:cursor-default ml-auto flex-shrink-0"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setExpandedIndex(expandedIndex === index ? null : index);
+                  }}
+                >
+                  <Info size={14} className="opacity-60" />
+                </div>
+              </label>
+
+              {/* Tooltip for desktop */}
+              <div className="hidden md:block absolute left-1/2 bottom-full -translate-x-1/2 mb-1 w-max max-w-[220px] bg-[var(--color-bg-primary)] border border-[var(--color-border)] text-[var(--color-text-primary)] text-[11px] font-medium py-2 px-3 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20 pointer-events-none">
+                <div className="text-[var(--color-text-secondary)] text-[10px] uppercase tracking-wider mb-1 font-semibold">Recettes associées</div>
+                <ul className="list-disc pl-3 text-left">
+                  {ingredient.recipeTitles.map((title, i) => (
+                    <li key={i} className="py-0.5 truncate">{title}</li>
+                  ))}
+                </ul>
               </div>
-              <span
-                className={`flex-1 text-[15px] transition-all font-medium select-none ${
-                  isSelected
-                    ? 'text-[var(--color-text-primary)]'
-                    : 'text-[var(--color-text-muted)] line-through'
-                }`}
-              >
-                {ingredient}
-              </span>
-            </label>
+
+              {/* Dropdown for mobile */}
+              {expandedIndex === index && (
+                <div className="md:hidden mt-1 px-10 pb-3 text-[12.5px] text-[var(--color-text-secondary)] animate-in slide-in-from-top-1 fade-in duration-200">
+                  <div className="font-semibold mb-1 text-[var(--color-text-primary)]">Recettes associées :</div>
+                  <ul className="list-disc pl-3 space-y-0.5">
+                    {ingredient.recipeTitles.map((title, i) => (
+                      <li key={i}>{title}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           );
         })}
       </div>

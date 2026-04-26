@@ -6,8 +6,7 @@ import { getRecipe } from '@/app/actions/recipes';
 import { getRecipeTags } from '@/app/actions/tags';
 import { DeleteButton } from './delete-button';
 import { AddToPlannerButton } from './add-to-planner-button';
-import { IngredientList } from '@/app/components/ingredient-list';
-import { RecipeNotes } from '@/app/components/recipe-notes';
+import { RecipeTabs } from '@/app/components/recipe-tabs';
 import { AppLayout } from '@/app/components/app-layout';
 import { RecipeRating } from '@/app/components/recipe-rating';
 
@@ -99,27 +98,7 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
             </div>
           </div>
 
-          <IngredientList ingredients={recipe.ingredients} />
-
-          <div className="mb-8">
-            <h2 className="text-base font-semibold text-[var(--color-text-primary)] mb-3 pb-2 border-b border-[var(--color-border)]">
-              Préparation
-            </h2>
-            <ol className="space-y-0">
-              {recipe.steps
-                .sort((a, b) => a.order - b.order)
-                .map((step, index) => (
-                  <li key={index} className="relative pl-12 py-3.5 border-b border-[var(--color-border-light)] text-[15px] leading-relaxed">
-                    <span className="absolute left-0 top-3.5 w-8 h-8 rounded-full bg-[var(--color-bg-primary)] text-[var(--color-accent)] flex items-center justify-center font-semibold text-sm">
-                      {index + 1}
-                    </span>
-                    {step.text}
-                  </li>
-                ))}
-            </ol>
-          </div>
-
-          <RecipeNotes recipeId={id} initialNotes={recipe.notes || ''} />
+          <RecipeTabs recipe={recipe} recipeId={id} />
         </div>
       </div>
     </AppLayout>

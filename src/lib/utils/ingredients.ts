@@ -103,36 +103,49 @@ export function parseIngredient(text: string): ParsedIngredient {
   return { quantity, unit, name, original };
 }
 
-export function aggregateIngredientsList(ingredientsStr: string[]): string[] {
-  const parsed = ingredientsStr.map(parseIngredient);
+export interface IngredientWithSource {
+  text: string;
+  recipeTitle: string;
+}
 
-  const aggregated = new Map<string, ParsedIngredient>();
+export interface AggregatedIngredientWithRecipes {
+  text: string;
+  recipeTitles: string[];
+}
+
+export function aggregateIngredientsListWithRecipes(ingredients: IngredientWithSource[]): AggregatedIngredientWithRecipes[] {
+  const parsed = ingredients.map(i => ({ ...parseIngredient(i.text), recipeTitle: i.recipeTitle }));
+
+  interface AggregatedItem extends ParsedIngredient {
+    recipeTitles: Set<string>;
+  }
+
+  const aggregated = new Map<string, AggregatedItem>();
 
   for (const item of parsed) {
-    // Generate a unique key based on name and unit
     const key = `${item.name}|${item.unit || 'none'}`;
     
     if (aggregated.has(key)) {
       const existing = aggregated.get(key)!;
+      existing.recipeTitles.add(item.recipeTitle);
       if (existing.quantity !== null && item.quantity !== null) {
         existing.quantity += item.quantity;
       } else if (existing.quantity === null && item.quantity !== null) {
         existing.quantity = item.quantity;
       }
     } else {
-      aggregated.set(key, { ...item }); // clone
+      aggregated.set(key, { ...item, recipeTitles: new Set([item.recipeTitle]) });
     }
   }
 
-  // Format back into string
-  const result: string[] = [];
+  const result: AggregatedIngredientWithRecipes[] = [];
   for (const item of aggregated.values()) {
-    // Capitalize properly without accidentally modifying units if no unit
+    let formattedText = '';
+    
     if (item.quantity !== null || item.unit) {
       let finalQty = item.quantity;
       let finalUnit = item.unit;
 
-      // Smart formatting back to elegant units
       if (finalQty !== null) {
         if (finalUnit === 'g' && finalQty >= 1000 && finalQty % 100 === 0) {
           finalQty = finalQty / 1000;
@@ -150,7 +163,6 @@ export function aggregateIngredientsList(ingredientsStr: string[]): string[] {
 
       let qtyStr = '';
       if (finalQty !== null) {
-        // Round to 2 decimal places maximum to avoid JS float precision issues (e.g. 0.33333333333333)
         const roundedQty = Math.round(finalQty * 100) / 100;
         qtyStr = roundedQty.toString().replace('.', ',');
       }
@@ -159,17 +171,26 @@ export function aggregateIngredientsList(ingredientsStr: string[]): string[] {
       let separator = '';
       if (finalUnit) {
           separator = item.name.match(/^[aeiouy]/i) ? " d'" : " de ";
-          result.push(`${qtyStr}${unitStr}${separator}${item.name}`);
+          formattedText = `${qtyStr}${unitStr}${separator}${item.name}`;
       } else {
-          result.push(`${qtyStr} ${item.name}`.trim());
+          formattedText = `${qtyStr} ${item.name}`.trim();
       }
     } else {
-      // Just the name
-      result.push(item.name.charAt(0).toUpperCase() + item.name.slice(1));
+      formattedText = item.name.charAt(0).toUpperCase() + item.name.slice(1);
     }
+    
+    result.push({
+      text: formattedText,
+      recipeTitles: Array.from(item.recipeTitles)
+    });
   }
 
   return result;
+}
+
+export function aggregateIngredientsList(ingredientsStr: string[]): string[] {
+  const withSources = ingredientsStr.map(text => ({ text, recipeTitle: '' }));
+  return aggregateIngredientsListWithRecipes(withSources).map(res => res.text);
 }
 
 export function aggregateIngredients(ingredientsStr: string[]): string {

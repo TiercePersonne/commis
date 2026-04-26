@@ -11,15 +11,15 @@ describe('ImportSourceSelector', () => {
     render(<ImportSourceSelector />);
     expect(screen.getByText('Site Web')).toBeDefined();
     expect(screen.getByText('Texte')).toBeDefined();
-    expect(screen.getByText('Reel Insta')).toBeDefined();
+    expect(screen.getByText('Vidéo Courte')).toBeDefined();
     expect(screen.getByText('En masse')).toBeDefined();
   });
 
   it('révèle le champ URL Reel quand on clique sur la carte Reel', () => {
     render(<ImportSourceSelector />);
-    const reelCard = screen.getByRole('button', { name: /reel insta/i });
+    const reelCard = screen.getByRole('button', { name: /vidéo courte/i });
     fireEvent.click(reelCard);
-    expect(screen.getByPlaceholderText(/instagram\.com\/reel/i)).toBeDefined();
+    expect(screen.getByPlaceholderText(/Lien Instagram/i)).toBeDefined();
   });
 
   it('révèle le champ URL quand on clique sur la carte Site web', () => {
