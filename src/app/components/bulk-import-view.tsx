@@ -16,6 +16,7 @@ interface UrlEntry {
   error?: string;
   recipeTitle?: string;
   recipeId?: string;
+  progress?: number;
 }
 
 interface BulkImportViewProps {
