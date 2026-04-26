@@ -62,9 +62,11 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user && pathname === "/login") {
-    const next = request.nextUrl.searchParams.get("next");
+    const rawNext = request.nextUrl.searchParams.get("next") ?? '/';
+    // A6 — Bloquer les protocol-relative URLs (e.g. //evil.com)
+    const safePath = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/';
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = next && next.startsWith("/") ? next : "/";
+    redirectUrl.pathname = safePath;
     redirectUrl.search = "";
     return NextResponse.redirect(redirectUrl);
   }

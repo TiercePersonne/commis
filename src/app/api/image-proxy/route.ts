@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { hostnameResolvesToPrivateIp } from '@/lib/utils/ip-utils';
 
 const BROWSER_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -25,6 +27,13 @@ async function tryFetch(url: string, withReferer: boolean): Promise<Response | n
 }
 
 export async function GET(request: NextRequest) {
+  // A1 — Exiger l'authentification
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+  }
+
   const rawUrl = request.nextUrl.searchParams.get('url');
 
   if (!rawUrl) {
@@ -40,6 +49,12 @@ export async function GET(request: NextRequest) {
 
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
     return NextResponse.json({ error: 'Unsupported protocol' }, { status: 400 });
+  }
+
+  // A1 — Bloquer les IP privées (SSRF)
+  const isPrivate = await hostnameResolvesToPrivateIp(parsed.hostname);
+  if (isPrivate) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const url = parsed.toString();
@@ -58,7 +73,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Image fetch failed' }, { status: 502 });
     }
 
-    const contentType = response.headers.get('content-type') ?? 'image/jpeg';
+    // A1 — Valider que le Content-Type est bien une image
+    const contentType = response.headers.get('content-type') ?? '';
+    if (!contentType.startsWith('image/')) {
+      return NextResponse.json({ error: 'Not an image' }, { status: 422 });
+    }
+
     const buffer = await response.arrayBuffer();
 
     return new NextResponse(buffer, {
@@ -66,6 +86,9 @@ export async function GET(request: NextRequest) {
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800',
+        // A1 — Headers de sécurité
+        'X-Content-Type-Options': 'nosniff',
+        'Content-Disposition': 'inline',
       },
     });
   } catch {

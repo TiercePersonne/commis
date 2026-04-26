@@ -6,6 +6,7 @@ export type ExtractedRecipe = {
   steps: { text: string; order: number }[];
   image_url?: string | null;
   source_url?: string;
+  source_type?: 'web' | 'reel' | 'image' | 'text';
   confidence: 'complete' | 'partial';
   suggested_tags?: string[];
 };

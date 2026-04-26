@@ -4,6 +4,8 @@ services:
     runtime: docker
     plan: free
     dockerfilePath: ./Dockerfile
+    # C6 — Health check pour éviter qu'un déploiement cassé reçoive du trafic
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
@@ -14,4 +16,7 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: ENCRYPTION_SECRET
+        sync: false
+      # B3 — Nécessaire pour deleteAccount (suppression auth user via API Admin)
+      - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false

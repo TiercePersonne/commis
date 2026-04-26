@@ -3,7 +3,56 @@
 import { useState, useTransition } from 'react';
 import { BulkImportView } from './bulk-import-view';
 
-type SelectedSource = 'web' | 'text' | 'reel' | 'image' | 'bulk' | null;
+type SelectedSource = 'web' | 'text' | 'reel' | 'image' | 'bulk';
+
+// E19 — compressImage extrait en dehors du composant (fonction pure, pas de dépendances d'instance)
+function compressImage(file: File): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1200;
+        const MAX_HEIGHT = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpeg", { type: 'image/jpeg', lastModified: Date.now() }));
+            } else {
+              reject(new Error('Canvas to Blob failed'));
+            }
+          },
+          'image/jpeg',
+          0.75
+        );
+      };
+      img.onerror = (error) => reject(error);
+    };
+    reader.onerror = (error) => reject(error);
+  });
+}
 
 interface ImportSourceSelectorProps {
   onImportStart?: (jobId: string, url: string) => void;
@@ -18,7 +67,8 @@ function isValidUrl(url: string): boolean {
 }
 
 export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport, onImageImport, onBulkDone }: ImportSourceSelectorProps) {
-  const [selectedSource, setSelectedSource] = useState<SelectedSource>(null);
+  // E13/17 — Initialiser à 'web' pour éviter désynchronisation avec activeTab
+  const [selectedSource, setSelectedSource] = useState<SelectedSource>('web');
   const [url, setUrl] = useState('');
   const [urlError, setUrlError] = useState<string | null>(null);
   const [reelUrl, setReelUrl] = useState('');
@@ -26,58 +76,8 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
   const [pastedText, setPastedText] = useState('');
   const [isPending, startTransition] = useTransition();
 
-  const compressImage = (file: File): Promise<File> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target?.result as string;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 1200;
-          const MAX_HEIGHT = 1200;
-          let width = img.width;
-          let height = img.height;
 
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height *= MAX_WIDTH / width;
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width *= MAX_HEIGHT / height;
-              height = MAX_HEIGHT;
-            }
-          }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-
-          canvas.toBlob(
-            (blob) => {
-              if (blob) {
-                resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpeg", { type: 'image/jpeg', lastModified: Date.now() }));
-              } else {
-                reject(new Error('Canvas to Blob failed'));
-              }
-            },
-            'image/jpeg',
-            0.75
-          );
-        };
-        img.onerror = (error) => reject(error);
-      };
-      reader.onerror = (error) => reject(error);
-    });
-  };
-
-  const handleCardClick = (source: 'web' | 'text' | 'reel' | 'image') => {
-    setSelectedSource(source === selectedSource ? null : source);
-    setUrlError(null);
-  };
+  // E16 — handleCardClick était dead code depuis le refactoring vers handleTabClick
 
   const handleUrlSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,8 +134,8 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
         : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-2 border-transparent hover:bg-[var(--color-bg-card)] hover:shadow-sm'
     }`;
 
-  // Si on n'a sélectionné aucune source, on force 'web' par défaut dans l'interface (même si l'état est null)
-  const activeTab = selectedSource ?? 'web';
+  // selectedSource est toujours initialisé à 'web', le fallback n'est plus nécessaire
+  const activeTab = selectedSource;
 
   const handleTabClick = (source: 'web' | 'text' | 'reel' | 'image' | 'bulk') => {
     setSelectedSource(source);
@@ -183,7 +183,7 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
         <button 
           type="button"
           onClick={() => handleTabClick('bulk')}
-          className={tabButtonClass(false)}
+          className={tabButtonClass(activeTab === 'bulk')}
         >
           <span className="text-xl md:text-2xl mb-0.5">📦</span>
           En masse
