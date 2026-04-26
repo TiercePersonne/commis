@@ -1,14 +1,41 @@
-FROM node:20-alpine
+# ===========================
+# Stage 1 : Dépendances
+# ===========================
+FROM node:22-alpine AS deps
 
 WORKDIR /app
 
-# Installer Python3 + pip + ffmpeg (sharp utilise ses propres librairies pré-compilées)
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# ===========================
+# Stage 2 : Builder
+# ===========================
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+# Copier les dépendances (avec devDependencies pour le build)
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+# ===========================
+# Stage 3 : Runner (image finale minimale)
+# ===========================
+FROM node:22-alpine AS runner
+
+WORKDIR /app
+
+# C1+C2 — Installer uniquement les outils runtime nécessaires
 RUN apk add --no-cache python3 py3-pip ffmpeg
 
 # Créer un symlink python → python3
 RUN ln -sf /usr/bin/python3 /usr/bin/python
 
-# Installer yt-dlp dans un virtualenv
+# Installer yt-dlp dans un virtualenv isolé
 RUN python3 -m venv /opt/yt-dlp-env \
     && /opt/yt-dlp-env/bin/pip install --no-cache-dir yt-dlp
 
@@ -17,25 +44,22 @@ RUN printf '#!/bin/sh\nexec /opt/yt-dlp-env/bin/python /opt/yt-dlp-env/bin/yt-dl
     > /usr/local/bin/yt-dlp \
     && chmod +x /usr/local/bin/yt-dlp
 
-# Vérifier que yt-dlp fonctionne
-RUN yt-dlp --version
+# C1 — Créer un utilisateur non-root (sécurité)
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 nextjs
 
-# Installer les dépendances Node.js
-COPY package*.json ./
-RUN npm ci
-
-# Builder Next.js
-COPY . .
-RUN npm run build
-
-# Copier les fichiers statiques dans le bon emplacement pour standalone
-RUN cp -r .next/static .next/standalone/.next/static \
-    && (cp -r public .next/standalone/public 2>/dev/null || true)
+# Copier uniquement les artefacts nécessaires depuis le builder
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
+# C1 — Basculer vers l'utilisateur non-root avant le démarrage
+USER nextjs
+
 EXPOSE 3000
 
-CMD ["node", ".next/standalone/server.js"]
+CMD ["node", "server.js"]

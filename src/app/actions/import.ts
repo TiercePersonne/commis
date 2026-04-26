@@ -17,6 +17,16 @@ export async function startImport(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, error: 'Non authentifié' };
 
+  // D6 — Valider que l'URL utilise un protocole sûr
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return { data: null, error: "URL invalide. Seuls les liens http:// et https:// sont acceptés." };
+    }
+  } catch {
+    return { data: null, error: "URL invalide." };
+  }
+
   const { data: job, error: createError } = await supabase
     .from('import_jobs')
     .insert({
@@ -179,9 +189,10 @@ export async function startImportFromReel(
 
     return { data: { recipe: extracted }, error: null };
   } catch (error) {
+    // B8 — Uniformiser : utiliser IMPORT_ERROR_MESSAGES pour les ImportError
     const message =
       error instanceof ImportError
-        ? error.message
+        ? IMPORT_ERROR_MESSAGES[error.code]
         : "Une erreur inattendue s'est produite lors de l'import de la vidéo.";
 
     await supabase
@@ -202,9 +213,22 @@ export async function startImportFromImage(
   if (!user) return { data: null, error: 'Non authentifié' };
 
   try {
-    const file = formData.get('image') as File | null;
-    if (!file) {
+    const file = formData.get('image');
+
+    // A4 — Valider que le champ est bien un File (pas un string)
+    if (!file || !(file instanceof File)) {
       return { data: null, error: "Aucune image fournie" };
+    }
+
+    // A4 — Limiter la taille à 10 Mo (10 * 1024 * 1024 bytes)
+    const MAX_SIZE_BYTES = 10 * 1024 * 1024;
+    if (file.size > MAX_SIZE_BYTES) {
+      return { data: null, error: "L'image est trop volumineuse (max 10 Mo)." };
+    }
+
+    // A4 — Valider le type MIME côté serveur
+    if (!file.type.startsWith('image/')) {
+      return { data: null, error: "Le fichier doit être une image." };
     }
 
     const buffer = await file.arrayBuffer();
@@ -212,11 +236,13 @@ export async function startImportFromImage(
     const mimeType = file.type;
 
     const extracted = await extractFromImage(base64Image, mimeType);
-    return { data: { recipe: extracted }, error: null };
+    // B1 — Marquer le source_type correctement
+    return { data: { recipe: { ...extracted, source_type: 'image' as const } }, error: null };
   } catch (error) {
+    // B8 — Uniformiser le handling des ImportError
     const message =
-      error instanceof Error
-        ? error.message
+      error instanceof ImportError
+        ? IMPORT_ERROR_MESSAGES[error.code]
         : "Une erreur inattendue s'est produite lors de l'analyse de l'image.";
     return { data: null, error: message };
   }

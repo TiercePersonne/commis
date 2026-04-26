@@ -9,8 +9,9 @@ const FRACTIONS: Record<string, number> = {
   '1/2': 0.5,
   '1/4': 0.25,
   '3/4': 0.75,
-  '1/3': 0.33,
-  '2/3': 0.66,
+  // B5 — Valeurs précises pour éviter 3×1/3 = 0.99
+  '1/3': 0.3333,
+  '2/3': 0.6667,
 };
 
 const NUMBER_WORDS: Record<string, number> = {
@@ -73,8 +74,11 @@ export function parseIngredient(text: string): ParsedIngredient {
   const unit = normalizeUnit(rawUnit);
   let name = rawName ? rawName.trim().toLowerCase() : original.toLowerCase();
 
+  // B6 — Mots invariables en français (ne pas singulariser)
+  const INVARIABLE_WORDS = new Set(['ananas', 'noix', 'maïs', 'bois', 'fois', 'riz', 'pois', 'os', 'fois', 'bas', 'gras', 'gros', 'faux', 'vieux', 'roux', 'doux']);
+
   // Basic normalization for name (singularize naively)
-  if (name.endsWith('s') && !name.endsWith('ss') && !name.endsWith('is') && !name.endsWith('os') && !name.endsWith('us')) {
+  if (name.endsWith('s') && !name.endsWith('ss') && !name.endsWith('is') && !name.endsWith('os') && !name.endsWith('us') && !INVARIABLE_WORDS.has(name)) {
       name = name.slice(0, -1);
   }
 

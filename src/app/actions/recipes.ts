@@ -7,6 +7,7 @@ import { createRecipeSchema, type Recipe } from '@/lib/schemas/recipe';
 import type { Tag } from '@/lib/schemas/tag';
 import type { ExtractedRecipe } from '@/lib/schemas/import-job';
 import { toSentenceCase } from '@/lib/utils/text';
+import { hostnameResolvesToPrivateIp } from '@/lib/utils/ip-utils';
 
 export type RecipeWithTags = Recipe & { tags: Tag[] };
 
@@ -197,7 +198,8 @@ export async function updateRecipe(
   const rawIngredients = formData.get('ingredients');
   const rawSteps = formData.get('steps');
   const rawTags = formData.get('tags');
-  const rawImageUrl = (formData.get('image_url') as string | null)?.trim() || null;
+  // B7 — Ne mettre à jour image_url que si le champ est explicitement présent dans le formData
+  const imageUrlField = formData.has('image_url') ? (formData.get('image_url') as string | null)?.trim() || null : undefined;
 
   let ingredients;
   let steps;
@@ -220,14 +222,19 @@ export async function updateRecipe(
     return { error: validationResult.error.issues[0].message };
   }
 
+  const updatePayload: Record<string, unknown> = {
+    title: toSentenceCase(validationResult.data.title),
+    ingredients: validationResult.data.ingredients,
+    steps: validationResult.data.steps,
+  };
+  // B7 — Inclure image_url seulement si explicitement présent
+  if (imageUrlField !== undefined) {
+    updatePayload.image_url = imageUrlField;
+  }
+
   const { data, error } = await supabase
     .from('recipes')
-    .update({
-      title: toSentenceCase(validationResult.data.title),
-      ingredients: validationResult.data.ingredients,
-      steps: validationResult.data.steps,
-      image_url: rawImageUrl,
-    })
+    .update(updatePayload)
     .eq('id', id)
     .eq('user_id', user.id)
     .select()
@@ -324,6 +331,18 @@ async function uploadImageFromUrl(
   }
 
   try {
+    // A2 — Bloquer les IP privées (SSRF) avant d'effectuer la requête
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(sourceUrl);
+    } catch {
+      return null;
+    }
+    if (await hostnameResolvesToPrivateIp(parsedUrl.hostname)) {
+      console.warn(`[uploadImageFromUrl] Blocked SSRF attempt to: ${parsedUrl.hostname}`);
+      return null;
+    }
+
     // Tentative 1 : avec Referer
     let response = await tryDownload(true);
     // Tentative 2 : sans Referer (contourne certaines protections anti-hotlink)
@@ -336,23 +355,29 @@ async function uploadImageFromUrl(
     const rawBuffer = Buffer.from(await response.arrayBuffer());
 
     // Optimisation : redimensionnement (max 1200px) + conversion WebP
+    // B2 — Tracker le contentType/extension réels selon le succès de sharp
     let processedBuffer: Buffer;
+    let effectiveContentType = contentType;
+    let effectiveExtension = contentType.split('/')[1]?.split(';')[0] ?? 'jpg';
+
     try {
       const sharp = (await import('sharp')).default;
       processedBuffer = await sharp(rawBuffer)
         .resize({ width: 1200, withoutEnlargement: true }) // max 1200px, ne pas agrandir les petites images
         .webp({ quality: 82 })                             // WebP, qualité 82% (~70-90% plus léger)
         .toBuffer();
+      effectiveContentType = 'image/webp';
+      effectiveExtension = 'webp';
     } catch {
-      // Si sharp échoue (format non supporté), on upload l'image originale
+      // Si sharp échoue (format non supporté), on upload l'image originale sans changer le type
       processedBuffer = rawBuffer;
     }
 
-    const filename = `${userId}/${Date.now()}.webp`;
+    const filename = `${userId}/${Date.now()}.${effectiveExtension}`;
 
     const { error } = await supabase.storage
       .from('recipe-images')
-      .upload(filename, processedBuffer, { contentType: 'image/webp', upsert: false });
+      .upload(filename, processedBuffer, { contentType: effectiveContentType, upsert: false });
 
     if (error) return null;
 
@@ -382,6 +407,9 @@ export async function saveImportedRecipe(
     if (uploaded) finalImageUrl = uploaded;
   }
 
+  // B1 — source_type déduit de la source_url ou passé explicitement via ExtractedRecipe
+  const sourceType = recipe.source_type ?? 'web';
+
   const { data, error } = await supabase
     .from('recipes')
     .insert({
@@ -390,7 +418,7 @@ export async function saveImportedRecipe(
       ingredients: recipe.ingredients,
       steps: recipe.steps,
       source_url: recipe.source_url ?? null,
-      source_type: 'web',
+      source_type: sourceType,
       image_url: finalImageUrl,
       confidence: recipe.confidence,
     })
