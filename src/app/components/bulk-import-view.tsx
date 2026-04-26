@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { isSupportedVideoUrl } from '@/lib/utils/url-utils';
 import { startImport, startImportFromReel } from '@/app/actions/import';
@@ -27,6 +27,38 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
   const [entries, setEntries] = useState<UrlEntry[] | null>(null);
   const [running, setRunning] = useState(false);
 
+  const [progressTimer, setProgressTimer] = useState<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (!running) return;
+
+    const timer = setInterval(() => {
+      setEntries((prev) => {
+        if (!prev) return prev;
+        let changed = false;
+        const next = prev.map((entry) => {
+          if (entry.status === 'importing' || entry.status === 'saving') {
+            changed = true;
+            const currentProgress = entry.progress ?? 0;
+            const max = entry.status === 'saving' ? 98 : 95;
+            
+            // Progression décélérée
+            const speedFactor = entry.type === 'reel' ? 0.04 : 0.15;
+            
+            if (currentProgress < max) {
+              const increment = (max - currentProgress) * speedFactor;
+              return { ...entry, progress: Math.min(currentProgress + increment, max) };
+            }
+          }
+          return entry;
+        });
+        return changed ? next : prev;
+      });
+    }, 200);
+
+    return () => clearInterval(timer);
+  }, [running]);
+
   const parseUrls = (): UrlEntry[] => {
     return rawText
       .split('\n')
@@ -36,6 +68,7 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
         url,
         type: isSupportedVideoUrl(url) ? 'reel' : 'web',
         status: 'pending' as UrlStatus,
+        progress: 0,
       }));
   };
 
@@ -56,7 +89,7 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
 
     for (let i = 0; i < parsed.length; i++) {
       const entry = parsed[i];
-      updateEntry(i, { status: 'importing' });
+      updateEntry(i, { status: 'importing', progress: 5 });
 
       try {
         let recipe: ExtractedRecipe;
@@ -71,7 +104,7 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
           recipe = result.data.recipe;
         }
 
-        updateEntry(i, { status: 'saving' });
+        updateEntry(i, { status: 'saving', progress: 90 });
         const saveResult = await saveImportedRecipe(recipe, []);
         if (saveResult.error || !saveResult.data) throw new Error(saveResult.error ?? 'Échec sauvegarde');
 
@@ -79,6 +112,7 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
           status: 'done',
           recipeTitle: recipe.title,
           recipeId: saveResult.data.id,
+          progress: 100,
         });
       } catch (err) {
         updateEntry(i, {
@@ -94,6 +128,9 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
   const urlCount = rawText.split('\n').filter((l) => l.trim().startsWith('http')).length;
   const doneCount = entries?.filter((e) => e.status === 'done').length ?? 0;
   const allDone = entries !== null && !running;
+  
+  const totalProgress = entries?.reduce((acc, entry) => acc + (entry.progress ?? 0), 0) ?? 0;
+  const globalProgressPercent = entries?.length ? totalProgress / entries.length : 0;
 
   return (
     <div className="w-full">
@@ -136,11 +173,11 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
             )}
           </div>
 
-          {/* Barre de progression */}
+          {/* Barre de progression Globale */}
           <div className="w-full h-2 bg-[var(--color-border-light)] rounded-full overflow-hidden">
             <div
               className="h-full bg-[var(--color-accent)] transition-all duration-300"
-              style={{ width: `${entries.length ? (doneCount / entries.length) * 100 : 0}%` }}
+              style={{ width: `${globalProgressPercent}%` }}
             />
           </div>
 
@@ -168,6 +205,17 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
                   {entry.status === 'saving' && (
                     <p className="text-[12px] text-[var(--color-accent)] mt-0.5">Sauvegarde…</p>
                   )}
+                  
+                  {/* Barre de progression individuelle */}
+                  {(entry.status === 'importing' || entry.status === 'saving') && (
+                    <div className="w-full h-1 mt-2 bg-[var(--color-border-light)] rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-[var(--color-accent)] transition-all duration-300"
+                        style={{ width: `${entry.progress ?? 0}%` }}
+                      />
+                    </div>
+                  )}
+
                   {entry.status === 'done' && entry.recipeTitle && (
                     <a
                       href={`/recipes/${entry.recipeId}`}

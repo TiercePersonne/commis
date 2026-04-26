@@ -13,69 +13,7 @@ import type { ExtractedRecipe } from '@/lib/schemas/import-job';
 
 type PageState = 'idle' | 'loading' | 'loading-reel' | 'loading-image' | 'preview' | 'saving' | 'error';
 
-function SmartLoader({ source }: { source: 'web' | 'reel' | 'image' | 'text' }) {
-  const [progress, setProgress] = useState(0);
-  const [stepIndex, setStepIndex] = useState(0);
 
-  const icons = {
-    web: '🌐',
-    reel: '🎬',
-    image: '📸',
-    text: '📋'
-  };
-
-  const steps = {
-    web: ['Connexion au site...', 'Téléchargement de la page...', "Analyse par l'IA...", "Dressage de l'assiette..."],
-    reel: ['Téléchargement du Reel...', "Transcription par l'IA...", 'Analyse des instructions...', "Dressage de l'assiette..."],
-    image: ['Lecture de l\'image...', "Extraction des textes par l'IA...", 'Structuration des ingrédients...', "Dressage de l'assiette..."],
-    text: ['Lecture du texte...', 'Tri des informations...', 'Structuration des étapes...', "Dressage de l'assiette..."]
-  }[source];
-
-  useEffect(() => {
-    const duration = source === 'reel' ? 30000 : source === 'web' ? 12000 : 5000;
-    const intervalMs = 100;
-    const increment = (100 / (duration / intervalMs));
-
-    const progressTimer = setInterval(() => {
-      setProgress(p => {
-        const next = p + increment;
-        return next > 90 ? 90 + (next - 90) * 0.1 : next;
-      });
-    }, intervalMs);
-
-    const stepDuration = duration / steps.length;
-    const stepTimer = setInterval(() => {
-      setStepIndex(i => Math.min(i + 1, steps.length - 1));
-    }, stepDuration);
-
-    return () => {
-      clearInterval(progressTimer);
-      clearInterval(stepTimer);
-    };
-  }, [source, steps.length]);
-
-  return (
-    <div className="mt-12 max-w-lg mx-auto bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-[var(--radius-xl)] shadow-sm p-8 text-center animate-in fade-in zoom-in-95 duration-300">
-      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[var(--color-bg-secondary)] border border-[var(--color-border)] text-[var(--color-text-primary)] text-3xl mb-6 shadow-sm animate-bounce">
-        {icons[source]}
-      </div>
-      <h3 className="text-[17px] font-bold text-[var(--color-text-primary)] mb-2 transition-all">
-        {steps[stepIndex]}
-      </h3>
-      <p className="text-[13px] text-[var(--color-text-muted)] mb-8 h-4">
-        Veuillez patienter quelques instants...
-      </p>
-
-      {/* Progress Bar */}
-      <div className="h-2 w-full bg-[var(--color-bg-secondary)] rounded-full overflow-hidden">
-        <div 
-          className="h-full bg-[var(--color-accent)] transition-all ease-linear"
-          style={{ width: `${progress}%`, transitionDuration: '100ms' }}
-        />
-      </div>
-    </div>
-  );
-}
 
 export default function ImportPage() {
   const router = useRouter();
@@ -95,7 +33,6 @@ export default function ImportPage() {
 
   const handleImportStart = async (_jobId: string, url: string) => {
     setImportError(null);
-    setPageState('loading');
 
     const result = await startImport(url);
     if (result.error) {
@@ -110,7 +47,6 @@ export default function ImportPage() {
 
   const handleReelImport = async (url: string) => {
     setImportError(null);
-    setPageState('loading-reel');
 
     const result = await startImportFromReel(url);
     if (result.error) {
@@ -125,7 +61,6 @@ export default function ImportPage() {
 
   const handleTextImport = async (text: string) => {
     setImportError(null);
-    setPageState('loading');
 
     const result = await startImportFromText(text);
     if (result.error) {
@@ -140,7 +75,6 @@ export default function ImportPage() {
 
   const handleImageImport = async (formData: FormData) => {
     setImportError(null);
-    setPageState('loading-image');
 
     const result = await startImportFromImage(formData);
     if (result.error) {
@@ -241,10 +175,7 @@ export default function ImportPage() {
           />
         )}
 
-        {/* Smart loading states */}
-        {pageState === 'loading' && <SmartLoader source="web" />}
-        {pageState === 'loading-reel' && <SmartLoader source="reel" />}
-        {pageState === 'loading-image' && <SmartLoader source="image" />}
+
 
         {/* Aperçu + correction */}
         {(pageState === 'preview' || pageState === 'saving') && extractedRecipe && (

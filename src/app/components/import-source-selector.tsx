@@ -5,6 +5,80 @@ import { BulkImportView } from './bulk-import-view';
 
 type SelectedSource = 'web' | 'text' | 'reel' | 'image' | 'bulk';
 
+import { useEffect } from 'react';
+
+function FakeProgressButton({ source }: { source: 'web' | 'reel' | 'image' | 'text' }) {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const max = 95;
+    // Vitesse adaptée selon la vraie durée moyenne estimée de chaque type d'import
+    const speedFactor = source === 'reel' ? 0.04 : (source === 'image' ? 0.08 : 0.2);
+    
+    const timer = setInterval(() => {
+      setProgress(p => {
+        if (p < max) {
+          // Progression décélérée : avance très vite au début, puis ralentit
+          const increment = (max - p) * speedFactor;
+          return Math.min(p + increment, max);
+        }
+        return p;
+      });
+    }, 200);
+
+    return () => clearInterval(timer);
+  }, [source]);
+
+  const steps = {
+    web: [
+      "Visite du site web...", 
+      "Lecture de la recette...", 
+      "L'IA prépare les ingrédients...", 
+      "Dressage presque terminé..."
+    ],
+    reel: [
+      "Visionnage de la vidéo...", 
+      "L'IA prend des notes...", 
+      "Organisation des étapes...", 
+      "On dresse l'assiette..."
+    ],
+    image: [
+      "L'IA étudie votre image...", 
+      "Déchiffrage du menu...", 
+      "Mise au propre...", 
+      "Dernières retouches..."
+    ],
+    text: [
+      "Lecture de vos notes...", 
+      "Tri des informations...", 
+      "Mise dans le bon ordre...", 
+      "C'est presque prêt !"
+    ]
+  }[source];
+
+  // L'index change en fonction de l'avancement de la jauge
+  const stepIndex = progress < 25 ? 0 :
+                    progress < 55 ? 1 :
+                    progress < 85 ? 2 : 3;
+                    
+  const currentText = steps[stepIndex];
+
+  return (
+    <div className="w-full mt-4">
+      <div className="flex justify-between items-center mb-2 px-1">
+        <span className="text-[14px] font-medium text-[var(--color-accent)] animate-pulse">{currentText}</span>
+        <span className="text-[13px] font-bold text-[var(--color-text-muted)]">{Math.round(progress)}%</span>
+      </div>
+      <div className="h-4 w-full bg-[var(--color-border-light)] rounded-full overflow-hidden shadow-inner">
+        <div 
+          className="h-full bg-[var(--color-accent)] transition-all duration-300"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // E19 — compressImage extrait en dehors du composant (fonction pure, pas de dépendances d'instance)
 function compressImage(file: File): Promise<File> {
   return new Promise((resolve, reject) => {
@@ -214,13 +288,17 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
                 }`}
               />
               {urlError && <p className="text-[13px] text-red-600 pl-1 font-medium">{urlError}</p>}
-              <button
-                type="submit"
-                disabled={isPending || !url.trim()}
-                className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[15px] font-bold rounded-[var(--radius-md)] shadow-md hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 transition-all active:scale-[0.98]"
-              >
-                Importer la recette
-              </button>
+              {isPending ? (
+                <FakeProgressButton source="web" />
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!url.trim()}
+                  className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[15px] font-bold rounded-[var(--radius-md)] shadow-md hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 transition-all active:scale-[0.98]"
+                >
+                  Importer la recette
+                </button>
+              )}
             </form>
           </div>
         )}
@@ -246,13 +324,17 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
                 }`}
               />
               {reelUrlError && <p className="text-[13px] text-red-600 pl-1 font-medium">{reelUrlError}</p>}
-              <button
-                type="submit"
-                disabled={isPending || !reelUrl.trim()}
-                className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[15px] font-bold rounded-[var(--radius-md)] shadow-md hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 transition-all active:scale-[0.98]"
-              >
-                Transcrire cette vidéo
-              </button>
+              {isPending ? (
+                <FakeProgressButton source="reel" />
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!reelUrl.trim()}
+                  className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[15px] font-bold rounded-[var(--radius-md)] shadow-md hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 transition-all active:scale-[0.98]"
+                >
+                  Transcrire cette vidéo
+                </button>
+              )}
             </form>
           </div>
         )}
@@ -266,36 +348,41 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
             </p>
             
             <label className={`w-full max-w-xs relative overflow-hidden flex flex-col items-center justify-center border-2 border-dashed rounded-[var(--radius-xl)] px-6 py-10 transition-colors cursor-pointer group ${isPending ? 'opacity-50 pointer-events-none' : 'border-[var(--color-border)] hover:border-[var(--color-accent)] hover:bg-[var(--color-bg-secondary)]'}`}>
-              <div className="text-3xl mb-3 text-[var(--color-text-muted)] group-hover:text-[var(--color-accent)] transition-colors">➕</div>
-              <span className="text-[14px] font-bold text-[var(--color-text-primary)]">Choisir une image</span>
-              <span className="text-[12px] text-[var(--color-text-muted)] mt-1">Appareil photo ou Galerie</span>
-              
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                disabled={isPending}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
+              {isPending ? (
+                <FakeProgressButton source="image" />
+              ) : (
+                <>
+                  <div className="text-3xl mb-3 text-[var(--color-text-muted)] group-hover:text-[var(--color-accent)] transition-colors">➕</div>
+                  <span className="text-[14px] font-bold text-[var(--color-text-primary)]">Choisir une image</span>
+                  <span className="text-[12px] text-[var(--color-text-muted)] mt-1">Appareil photo ou Galerie</span>
+                  
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
 
-                  let fileToUpload = file;
-                  try {
-                    fileToUpload = await compressImage(file);
-                  } catch (err) {
-                    console.error('Image compression failed', err);
-                  }
+                      let fileToUpload = file;
+                      try {
+                        fileToUpload = await compressImage(file);
+                      } catch (err) {
+                        console.error('Image compression failed', err);
+                      }
 
-                  const formData = new FormData();
-                  formData.append('image', fileToUpload);
-                  startTransition(async () => {
-                    if (onImageImport) {
-                      await onImageImport(formData);
-                    }
-                  });
-                }}
-              />
+                      const formData = new FormData();
+                      formData.append('image', fileToUpload);
+                      startTransition(async () => {
+                        if (onImageImport) {
+                          await onImageImport(formData);
+                        }
+                      });
+                    }}
+                  />
+                </>
+              )}
             </label>
           </div>
         )}
@@ -318,13 +405,17 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
                 rows={6}
                 className="w-full px-4 py-3 text-[14px] border border-[var(--color-border)] rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] resize-y focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30 disabled:opacity-50 transition-colors"
               />
-              <button
-                type="submit"
-                disabled={isPending || !pastedText.trim()}
-                className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[15px] font-bold rounded-[var(--radius-md)] shadow-md hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 transition-all active:scale-[0.98]"
-              >
-                Extraire les informations
-              </button>
+              {isPending ? (
+                <FakeProgressButton source="text" />
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!pastedText.trim()}
+                  className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[15px] font-bold rounded-[var(--radius-md)] shadow-md hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 transition-all active:scale-[0.98]"
+                >
+                  Extraire les informations
+                </button>
+              )}
             </form>
           </div>
         )}

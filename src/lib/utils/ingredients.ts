@@ -70,16 +70,34 @@ export function parseIngredient(text: string): ParsedIngredient {
 
   const [, rawQuantity, rawUnit, rawName] = match;
 
-  const quantity = parseQuantity(rawQuantity);
-  const unit = normalizeUnit(rawUnit);
+  let quantity = parseQuantity(rawQuantity);
+  let unit = normalizeUnit(rawUnit);
   let name = rawName ? rawName.trim().toLowerCase() : original.toLowerCase();
 
   // B6 — Mots invariables en français (ne pas singulariser)
   const INVARIABLE_WORDS = new Set(['ananas', 'noix', 'maïs', 'bois', 'fois', 'riz', 'pois', 'os', 'fois', 'bas', 'gras', 'gros', 'faux', 'vieux', 'roux', 'doux']);
 
+  // Nettoyage agressif pour supprimer les annotations d'étapes communes ('(pour la sauce)', 'pour la dorure', etc)
+  name = name.replace(/\s*\(.*?\)\s*/g, ' ').trim();
+  name = name.replace(/\s+(pour\s+(la|le|les|l'|un|une)?|au moment de|afin de).*$/i, '').trim();
+
   // Basic normalization for name (singularize naively)
   if (name.endsWith('s') && !name.endsWith('ss') && !name.endsWith('is') && !name.endsWith('os') && !name.endsWith('us') && !INVARIABLE_WORDS.has(name)) {
       name = name.slice(0, -1);
+  }
+
+  // Conversion vers une unité de base pour pouvoir les regrouper (kg -> g, l/cl -> ml)
+  if (quantity !== null) {
+    if (unit === 'kg') {
+      quantity *= 1000;
+      unit = 'g';
+    } else if (unit === 'l') {
+      quantity *= 1000;
+      unit = 'ml';
+    } else if (unit === 'cl') {
+      quantity *= 10;
+      unit = 'ml';
+    }
   }
 
   return { quantity, unit, name, original };
@@ -111,14 +129,35 @@ export function aggregateIngredientsList(ingredientsStr: string[]): string[] {
   for (const item of aggregated.values()) {
     // Capitalize properly without accidentally modifying units if no unit
     if (item.quantity !== null || item.unit) {
+      let finalQty = item.quantity;
+      let finalUnit = item.unit;
+
+      // Smart formatting back to elegant units
+      if (finalQty !== null) {
+        if (finalUnit === 'g' && finalQty >= 1000 && finalQty % 100 === 0) {
+          finalQty = finalQty / 1000;
+          finalUnit = 'kg';
+        } else if (finalUnit === 'ml') {
+          if (finalQty >= 1000 && finalQty % 100 === 0) {
+            finalQty = finalQty / 1000;
+            finalUnit = 'l';
+          } else if (finalQty >= 10 && finalQty % 10 === 0 && finalQty < 1000) {
+            finalQty = finalQty / 10;
+            finalUnit = 'cl';
+          }
+        }
+      }
+
       let qtyStr = '';
-      if (item.quantity !== null) {
-        qtyStr = item.quantity.toString().replace('.', ',');
+      if (finalQty !== null) {
+        // Round to 2 decimal places maximum to avoid JS float precision issues (e.g. 0.33333333333333)
+        const roundedQty = Math.round(finalQty * 100) / 100;
+        qtyStr = roundedQty.toString().replace('.', ',');
       }
       
-      const unitStr = item.unit ? ` ${item.unit}` : '';
+      const unitStr = finalUnit ? ` ${finalUnit}` : '';
       let separator = '';
-      if (item.unit) {
+      if (finalUnit) {
           separator = item.name.match(/^[aeiouy]/i) ? " d'" : " de ";
           result.push(`${qtyStr}${unitStr}${separator}${item.name}`);
       } else {
