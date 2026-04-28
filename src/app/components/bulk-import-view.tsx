@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Copy, Check } from 'lucide-react';
 import { isSupportedVideoUrl } from '@/lib/utils/url-utils';
 import { startImport, startImportFromReel } from '@/app/actions/import';
 import { saveImportedRecipe } from '@/app/actions/recipes';
@@ -23,10 +23,26 @@ interface BulkImportViewProps {
   onDone: () => void;
 }
 
+const withTimeout = <T,>(promise: Promise<T>, ms: number, errorMessage: string): Promise<T> => {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(errorMessage)), ms);
+    promise
+      .then((res) => {
+        clearTimeout(timer);
+        resolve(res);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+};
+
 export function BulkImportView({ onDone }: BulkImportViewProps) {
   const [rawText, setRawText] = useState('');
   const [entries, setEntries] = useState<UrlEntry[] | null>(null);
   const [running, setRunning] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const [progressTimer, setProgressTimer] = useState<NodeJS.Timeout | null>(null);
 
@@ -96,17 +112,20 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
         let recipe: ExtractedRecipe;
 
         if (entry.type === 'reel') {
-          const result = await startImportFromReel(entry.url);
+          // Limite à 90 secondes pour une vidéo
+          const result = await withTimeout(startImportFromReel(entry.url), 90000, "Délai d'attente dépassé (90s max)");
           if (result.error || !result.data) throw new Error(result.error ?? 'Échec import vidéo');
           recipe = result.data.recipe;
         } else {
-          const result = await startImport(entry.url);
+          // Limite à 45 secondes pour un lien web
+          const result = await withTimeout(startImport(entry.url), 45000, "Délai d'attente dépassé (45s max)");
           if (result.error || !result.data) throw new Error(result.error ?? 'Échec import web');
           recipe = result.data.recipe;
         }
 
         updateEntry(i, { status: 'saving', progress: 90 });
-        const saveResult = await saveImportedRecipe(recipe, []);
+        // Limite à 15 secondes pour la sauvegarde
+        const saveResult = await withTimeout(saveImportedRecipe(recipe, []), 15000, "Délai de sauvegarde dépassé");
         if (saveResult.error || !saveResult.data) throw new Error(saveResult.error ?? 'Échec sauvegarde');
 
         updateEntry(i, {
@@ -127,11 +146,19 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
   };
 
   const urlCount = rawText.split('\n').filter((l) => l.trim().startsWith('http')).length;
+  const errorEntries = entries?.filter((e) => e.status === 'error') || [];
   const doneCount = entries?.filter((e) => e.status === 'done').length ?? 0;
   const allDone = entries !== null && !running;
   
   const totalProgress = entries?.reduce((acc, entry) => acc + (entry.progress ?? 0), 0) ?? 0;
   const globalProgressPercent = entries?.length ? totalProgress / entries.length : 0;
+
+  const handleCopyErrors = () => {
+    const errorUrls = errorEntries.map((e) => e.url).join('\n');
+    navigator.clipboard.writeText(errorUrls);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className="w-full">
@@ -173,6 +200,37 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
               </button>
             )}
           </div>
+
+          {allDone && errorEntries.length > 0 && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-xl space-y-3 dark:bg-red-950/20 dark:border-red-900/30">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h4 className="text-[14px] font-medium text-red-800 dark:text-red-400">
+                    {errorEntries.length} lien{errorEntries.length > 1 ? 's' : ''} en erreur
+                  </h4>
+                  <p className="text-[13px] text-red-600 dark:text-red-500 mt-1">
+                    Certains liens n'ont pas pu être importés. Vous pouvez les copier pour réessayer plus tard.
+                  </p>
+                </div>
+                <button
+                  onClick={handleCopyErrors}
+                  className="shrink-0 flex items-center gap-2 px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-[13px] font-medium hover:bg-red-200 transition-colors dark:bg-red-900/40 dark:text-red-300 dark:hover:bg-red-900/60"
+                >
+                  {copied ? (
+                    <>
+                      <Check size={14} />
+                      Copié
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={14} />
+                      Copier
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Barre de progression Globale */}
           <div className="w-full h-2 bg-[var(--color-border-light)] rounded-full overflow-hidden">
