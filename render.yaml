@@ -20,3 +20,5 @@ services:
       # B3 — Nécessaire pour deleteAccount (suppression auth user via API Admin)
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
+      - key: INSTAGRAM_SHARED_COOKIES
+        sync: false
