@@ -22,3 +22,5 @@ services:
         sync: false
       - key: INSTAGRAM_SHARED_COOKIES
         sync: false
+      - key: APIFY_API_TOKEN
+        sync: false

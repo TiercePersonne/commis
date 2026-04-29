@@ -19,14 +19,78 @@ async function downloadReelAudio(
   const outputTemplate = join(tmpDir, 'audio.%(ext)s');
 
   try {
+    const isProduction = process.env.NODE_ENV === 'production';
+    const ytDlpBin = isProduction ? '/usr/local/bin/yt-dlp' : 'python';
+    const isInstagram = reelUrl.includes('instagram.com');
+
+    // --- APIFY PATH FOR INSTAGRAM ---
+    if (isInstagram && process.env.APIFY_API_TOKEN) {
+      console.log('[import-reel] Using Apify for Instagram extraction');
+      const { ApifyClient } = await import('apify-client');
+      const client = new ApifyClient({ token: process.env.APIFY_API_TOKEN });
+      
+      // apify/instagram-scraper is the standard actor for this
+      const run = await client.actor("apify/instagram-scraper").call({
+        directUrls: [reelUrl],
+        resultsType: "details",
+      });
+      
+      const { items } = await client.dataset(run.defaultDatasetId).listItems();
+      const item = items[0] as any;
+      
+      if (!item || !item.videoUrl) {
+         console.error('[import-reel] Apify returned no videoUrl:', item);
+         throw new ImportError(IMPORT_ERROR_MESSAGES.SITE_UNREACHABLE, 'SITE_UNREACHABLE');
+      }
+
+      const directVideoUrl = item.videoUrl;
+      const description = item.caption || '';
+      const thumbnail = item.displayUrl || null;
+
+      // Use yt-dlp purely to download and extract audio from the direct MP4 url
+      const dlArgs = [
+        '--no-playlist', '--no-warnings',
+        '--extract-audio',
+        '--audio-format', 'mp3',
+        '--audio-quality', '5',
+        '--user-agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+        '--add-header', 'Referer:https://www.instagram.com/',
+        '-o', outputTemplate,
+        directVideoUrl,
+      ];
+      
+      const dlArgsWithModule = isProduction ? dlArgs : ['-m', 'yt_dlp', ...dlArgs];
+
+      const { stderr: dlStderr } = await execFileAsync(ytDlpBin, dlArgsWithModule, {
+        timeout: 60000,
+        maxBuffer: 10 * 1024 * 1024,
+      });
+
+      let apifySuccess = false;
+      if (dlStderr?.includes('ERROR:')) {
+        console.warn('[import-reel] Apify direct mp4 download failed (likely 403). Falling back to local yt-dlp...', dlStderr.slice(0, 300));
+      } else {
+        const files = await readdir(tmpDir);
+        const audioFile = files.find((f) => /\.(mp3|m4a|aac|ogg|opus|webm|wav)$/i.test(f));
+        if (audioFile) {
+          apifySuccess = true;
+          return { audioPath: join(tmpDir, audioFile), description, thumbnail, tmpDir };
+        } else {
+          console.warn('[import-reel] Apify download succeeded but no audio file found. Falling back...');
+        }
+      }
+
+      if (!apifySuccess) {
+        console.log('[import-reel] Proceeding to fallback yt-dlp method...');
+      }
+    }
+
+    // --- STANDARD YT-DLP PATH (TikTok, YouTube, or fallback) ---
     const localCookiesPath = join(process.cwd(), 'instagram-cookies.txt');
     let cookiesPath: string | null = null;
     
-    const isInstagram = reelUrl.includes('instagram.com');
-
     if (isInstagram) {
       const effectiveCookies = cookiesContent || process.env.INSTAGRAM_SHARED_COOKIES || null;
-
       try {
         await access(localCookiesPath);
         cookiesPath = localCookiesPath;
@@ -50,8 +114,6 @@ async function downloadReelAudio(
       reelUrl,
     ];
 
-    const isProduction = process.env.NODE_ENV === 'production';
-    const ytDlpBin = isProduction ? '/usr/local/bin/yt-dlp' : 'python';
     const descArgsWithModule = isProduction ? descArgs : ['-m', 'yt_dlp', ...descArgs];
     console.log('[import-reel] using binary:', ytDlpBin);
 
@@ -88,34 +150,37 @@ async function downloadReelAudio(
     const { stderr: dlStderr } = await execFileAsync(ytDlpBin, dlArgsWithModule, {
       timeout: 60000,
       maxBuffer: 10 * 1024 * 1024,
+    }).catch(async (err) => {
+      // yt-dlp returns an error if extraction fails (e.g. no audio codec)
+      return { stderr: String(err) };
     });
 
-    if (dlStderr?.includes('ERROR:')) {
+    if (dlStderr?.includes('ERROR:') && !dlStderr?.includes('audio codec')) {
       console.error('[import-reel] download error:', dlStderr.slice(0, 300));
-      throw new ImportError(IMPORT_ERROR_MESSAGES.SITE_UNREACHABLE, 'SITE_UNREACHABLE');
+      // Don't throw immediately, we might still have a description!
     }
 
     const files = await readdir(tmpDir);
 
     const audioFile = files.find((f) => /\.(mp3|m4a|aac|ogg|opus|webm|wav)$/i.test(f));
-    if (!audioFile) {
-      console.error('[import-reel] No audio file found. tmpDir files:', files);
+    if (!audioFile && !description) {
+      console.error('[import-reel] No audio file and no description found. tmpDir files:', files);
       throw new ImportError(IMPORT_ERROR_MESSAGES.EXTRACTION_FAILED, 'EXTRACTION_FAILED');
     }
-    const audioPath = join(tmpDir, audioFile);
+    const audioPath = audioFile ? join(tmpDir, audioFile) : null;
 
     return { audioPath, description, thumbnail, tmpDir };
   } catch (err) {
     await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
     if (err instanceof ImportError) throw err;
     const msg = err instanceof Error ? err.message : String(err);
-    console.error('[import-reel] yt-dlp failed:', msg.slice(0, 500));
+    console.error('[import-reel] yt-dlp/apify failed:', msg.slice(0, 500));
     throw new ImportError(IMPORT_ERROR_MESSAGES.SITE_UNREACHABLE, 'SITE_UNREACHABLE');
   }
 }
 
 async function extractRecipeFromAudio(
-  audioPath: string,
+  audioPath: string | null,
   description: string,
   reelUrl: string,
   thumbnail: string | null
@@ -124,34 +189,40 @@ async function extractRecipeFromAudio(
     throw new ImportError(IMPORT_ERROR_MESSAGES.LLM_UNAVAILABLE, 'LLM_UNAVAILABLE');
   }
 
-  const audioBuffer = await readFile(audioPath);
-  const MAX_BYTES = 19 * 1024 * 1024;
-  if (audioBuffer.byteLength > MAX_BYTES) {
-    throw new ImportError(
-      "La vidéo est trop longue pour être traitée (limite : ~19 Mo d'audio).",
-      'EXTRACTION_FAILED'
-    );
-  }
-  const audioBase64 = audioBuffer.toString('base64');
-
-  const ext = audioPath.split('.').pop()?.toLowerCase() ?? 'mp3';
-  const mimeMap: Record<string, string> = {
-    mp3: 'audio/mp3', m4a: 'audio/mp4', aac: 'audio/aac',
-    ogg: 'audio/ogg', opus: 'audio/ogg', webm: 'audio/webm', wav: 'audio/wav',
-  };
-  const mimeType = mimeMap[ext] ?? 'audio/mp4';
-
   const { GoogleGenerativeAI } = await import('@google/generative-ai');
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
+  const contentParts: any[] = [];
+
+  if (audioPath) {
+    const audioBuffer = await readFile(audioPath);
+    const MAX_BYTES = 19 * 1024 * 1024;
+    if (audioBuffer.byteLength > MAX_BYTES) {
+      throw new ImportError(
+        "La vidéo est trop longue pour être traitée (limite : ~19 Mo d'audio).",
+        'EXTRACTION_FAILED'
+      );
+    }
+    const audioBase64 = audioBuffer.toString('base64');
+
+    const ext = audioPath.split('.').pop()?.toLowerCase() ?? 'mp3';
+    const mimeMap: Record<string, string> = {
+      mp3: 'audio/mp3', m4a: 'audio/mp4', aac: 'audio/aac',
+      ogg: 'audio/ogg', opus: 'audio/ogg', webm: 'audio/webm', wav: 'audio/wav',
+    };
+    const mimeType = mimeMap[ext] ?? 'audio/mp4';
+    
+    contentParts.push({ inlineData: { mimeType, data: audioBase64 } });
+  }
+
   const descriptionSection = description
-    ? `\n\nDescription/légende de la vidéo :\n${description}`
+    ? `\n\nDescription/légende du post :\n${description}`
     : '';
 
-  const prompt = `Tu es un extracteur de recettes de cuisine. TOUTES TES RÉPONSES DOIVENT ÊTRE EN FRANÇAIS, quelle que soit la langue de l'audio ou de la description.
+  const prompt = `Tu es un extracteur de recettes de cuisine. TOUTES TES RÉPONSES DOIVENT ÊTRE EN FRANÇAIS, quelle que soit la langue d'origine.
 
-Écoute cet audio issu d'une vidéo (par ex. Instagram, TikTok ou YouTube) et extrait la recette présentée.${descriptionSection}
+Analyse ce contenu (audio si disponible, et description) issu d'un post (par ex. Instagram, TikTok ou YouTube) et extrait la recette présentée.${descriptionSection}
 
 Retourne UNIQUEMENT un objet JSON valide avec ces champs (TOUT en français) :
 {
@@ -170,10 +241,9 @@ Règles OBLIGATOIRES :
 - Réponds UNIQUEMENT avec le JSON, sans backticks ni texte autour
 - URL source : ${reelUrl}`;
 
-  const result = await model.generateContent([
-    { text: prompt },
-    { inlineData: { mimeType, data: audioBase64 } },
-  ]);
+  contentParts.unshift({ text: prompt });
+
+  const result = await model.generateContent(contentParts);
 
   const content = result.response.text().trim();
   if (!content) {
