@@ -28,19 +28,19 @@ async function downloadReelAudio(
       console.log('[import-reel] Using Apify for Instagram extraction');
       const { ApifyClient } = await import('apify-client');
       const client = new ApifyClient({ token: process.env.APIFY_API_TOKEN });
-      
+
       // apify/instagram-scraper is the standard actor for this
       const run = await client.actor("apify/instagram-scraper").call({
         directUrls: [reelUrl],
         resultsType: "details",
       });
-      
+
       const { items } = await client.dataset(run.defaultDatasetId).listItems();
       const item = items[0] as any;
-      
+
       if (!item || !item.videoUrl) {
-         console.error('[import-reel] Apify returned no videoUrl:', item);
-         throw new ImportError(IMPORT_ERROR_MESSAGES.SITE_UNREACHABLE, 'SITE_UNREACHABLE');
+        console.error('[import-reel] Apify returned no videoUrl:', item);
+        throw new ImportError(IMPORT_ERROR_MESSAGES.SITE_UNREACHABLE, 'SITE_UNREACHABLE');
       }
 
       const directVideoUrl = item.videoUrl;
@@ -58,7 +58,7 @@ async function downloadReelAudio(
         '-o', outputTemplate,
         directVideoUrl,
       ];
-      
+
       const dlArgsWithModule = isProduction ? dlArgs : ['-m', 'yt_dlp', ...dlArgs];
 
       const { stderr: dlStderr } = await execFileAsync(ytDlpBin, dlArgsWithModule, {
@@ -67,7 +67,7 @@ async function downloadReelAudio(
       });
 
       let apifySuccess = false;
-      if (dlStderr?.includes('ERROR:')) {
+      if (dlStderr?.includes('ERROR:') && !dlStderr?.includes('audio codec')) {
         console.warn('[import-reel] Apify direct mp4 download failed (likely 403). Falling back to local yt-dlp...', dlStderr.slice(0, 300));
       } else {
         const files = await readdir(tmpDir);
@@ -75,8 +75,12 @@ async function downloadReelAudio(
         if (audioFile) {
           apifySuccess = true;
           return { audioPath: join(tmpDir, audioFile), description, thumbnail, tmpDir };
+        } else if (description) {
+          console.warn('[import-reel] Apify download succeeded but no audio file found. Returning description only.');
+          apifySuccess = true;
+          return { audioPath: null, description, thumbnail, tmpDir };
         } else {
-          console.warn('[import-reel] Apify download succeeded but no audio file found. Falling back...');
+          console.warn('[import-reel] Apify download succeeded but no audio and no description found. Falling back...');
         }
       }
 
@@ -88,7 +92,7 @@ async function downloadReelAudio(
     // --- STANDARD YT-DLP PATH (TikTok, YouTube, or fallback) ---
     const localCookiesPath = join(process.cwd(), 'instagram-cookies.txt');
     let cookiesPath: string | null = null;
-    
+
     if (isInstagram) {
       const effectiveCookies = cookiesContent || process.env.INSTAGRAM_SHARED_COOKIES || null;
       try {
@@ -132,7 +136,7 @@ async function downloadReelAudio(
     const secondLastLine = lines.at(-2)?.trim() ?? '';
     const thumbnail = lastLine.startsWith('http') ? lastLine
       : secondLastLine.startsWith('http') ? secondLastLine
-      : null;
+        : null;
     const cutAt = thumbnail === lastLine ? -1 : thumbnail === secondLastLine ? -2 : undefined;
     const description = lines.slice(0, cutAt).join('\n').trim();
 
@@ -171,7 +175,7 @@ async function downloadReelAudio(
 
     return { audioPath, description, thumbnail, tmpDir };
   } catch (err) {
-    await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    await rm(tmpDir, { recursive: true, force: true }).catch(() => { });
     if (err instanceof ImportError) throw err;
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[import-reel] yt-dlp/apify failed:', msg.slice(0, 500));
@@ -212,7 +216,7 @@ async function extractRecipeFromAudio(
       ogg: 'audio/ogg', opus: 'audio/ogg', webm: 'audio/webm', wav: 'audio/wav',
     };
     const mimeType = mimeMap[ext] ?? 'audio/mp4';
-    
+
     contentParts.push({ inlineData: { mimeType, data: audioBase64 } });
   }
 
@@ -290,6 +294,6 @@ export async function extractRecipeFromReel(
 
     return { ...extracted, confidence };
   } finally {
-    await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    await rm(tmpDir, { recursive: true, force: true }).catch(() => { });
   }
 }
