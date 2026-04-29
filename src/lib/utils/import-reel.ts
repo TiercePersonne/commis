@@ -14,7 +14,7 @@ const execFileAsync = promisify(execFile);
 async function downloadReelAudio(
   reelUrl: string,
   cookiesContent?: string | null
-): Promise<{ audioPath: string; description: string; thumbnail: string | null; tmpDir: string }> {
+): Promise<{ audioPath: string | null; description: string; thumbnail: string | null; tmpDir: string }> {
   const tmpDir = await mkdtemp(join(tmpdir(), 'commis-reel-'));
   const outputTemplate = join(tmpDir, 'audio.%(ext)s');
 
