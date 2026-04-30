@@ -64,6 +64,8 @@ async function downloadReelAudio(
       const { stderr: dlStderr } = await execFileAsync(ytDlpBin, dlArgsWithModule, {
         timeout: 60000,
         maxBuffer: 10 * 1024 * 1024,
+      }).catch((err) => {
+        return { stderr: err.stderr || String(err) };
       });
 
       let apifySuccess = false;
