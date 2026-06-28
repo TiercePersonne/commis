@@ -95,8 +95,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           transform: (isVisible || isMenuOpen) ? 'translateY(0)' : 'translateY(-100px)'
         }}
       >
-        <Link href="/" className="text-[20px] font-serif font-bold text-[var(--color-accent)] pl-2">
-          Commis
+        <Link href="/" className="flex items-center pl-2">
+          <img 
+            src="/logo.svg" 
+            alt="Commis" 
+            className="h-6 w-auto object-contain"
+          />
         </Link>
         
         {/* Desktop Nav */}
