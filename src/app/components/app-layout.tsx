@@ -2,11 +2,42 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+    let accumulatedScroll = 0;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      const delta = currentScrollY - lastScrollY;
+      
+      if (currentScrollY <= 10) {
+        setIsVisible(true);
+        accumulatedScroll = 0;
+      } else {
+        if ((delta > 0 && accumulatedScroll < 0) || (delta < 0 && accumulatedScroll > 0)) {
+          accumulatedScroll = 0;
+        }
+        accumulatedScroll += delta;
+
+        if (accumulatedScroll > 30) {
+          setIsVisible(false);
+        } else if (accumulatedScroll < -30) {
+          setIsVisible(true);
+        }
+      }
+      lastScrollY = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const isActive = (path: string) => {
     if (path === '/') {
@@ -58,8 +89,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="flex flex-col min-h-[100dvh] bg-[var(--color-bg-primary)]">
       {/* Floating Header Pill */}
       <header
-        className="fixed top-4 left-4 right-4 md:left-8 md:right-8 z-50 bg-[var(--color-bg-card)]/90 backdrop-blur-md rounded-[20px] border border-[var(--color-border)] px-4 md:px-6 py-3 flex items-center justify-between transition-all"
-        style={{ boxShadow: '0 8px 30px -10px rgba(44, 24, 16, 0.1)' }}
+        className="fixed top-4 left-4 right-4 md:left-8 md:right-8 z-50 bg-[var(--color-bg-card)]/90 backdrop-blur-md rounded-[20px] border border-[var(--color-border)] px-4 md:px-6 py-3 flex items-center justify-between transition-all duration-300 ease-in-out"
+        style={{ 
+          boxShadow: '0 8px 30px -10px rgba(44, 24, 16, 0.1)',
+          transform: (isVisible || isMenuOpen) ? 'translateY(0)' : 'translateY(-100px)'
+        }}
       >
         <Link href="/" className="text-[20px] font-serif font-bold text-[var(--color-accent)] pl-2">
           Commis

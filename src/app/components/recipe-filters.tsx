@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 import type { Recipe } from '@/lib/schemas/recipe';
@@ -42,6 +42,40 @@ export function RecipeFilters({ recipes, recipeTagsMap }: RecipeFiltersProps) {
   const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
   const [showAllTags, setShowAllTags] = useState(false);
   const [sortBy, setSortBy] = useState<'recent' | 'rating'>('recent');
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const [isStuck, setIsStuck] = useState(false);
+
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+    let accumulatedScroll = 0;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      const delta = currentScrollY - lastScrollY;
+      
+      setIsStuck(currentScrollY > 10);
+
+      if (currentScrollY <= 10) {
+        setIsHeaderVisible(true);
+        accumulatedScroll = 0;
+      } else {
+        if ((delta > 0 && accumulatedScroll < 0) || (delta < 0 && accumulatedScroll > 0)) {
+          accumulatedScroll = 0;
+        }
+        accumulatedScroll += delta;
+
+        if (accumulatedScroll > 30) {
+          setIsHeaderVisible(false);
+        } else if (accumulatedScroll < -30) {
+          setIsHeaderVisible(true);
+        }
+      }
+      lastScrollY = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const allTags = Array.from(
     new Set(
@@ -89,80 +123,90 @@ export function RecipeFilters({ recipes, recipeTagsMap }: RecipeFiltersProps) {
 
   return (
     <>
-      <div className="mb-6 space-y-4">
-        <div className="relative">
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]">
-            🔍
-          </div>
-          <input
-            type="text"
-            placeholder="Rechercher une recette..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3.5 border border-[var(--color-border)] rounded-xl bg-[var(--color-bg-card)] text-[14px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-4 focus:ring-[rgba(196,112,75,0.12)]"
-          />
-        </div>
-
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-          <div className="flex items-center gap-4 shrink-0">
-            <p className="text-[13px] font-medium text-[var(--color-text-secondary)]">
-              {recipes.length} recette{recipes.length > 1 ? 's' : ''}
-            </p>
-            <div className="h-4 w-px bg-[var(--color-border)] hidden sm:block"></div>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as 'recent' | 'rating')}
-              className="text-[13px] bg-transparent font-medium text-[var(--color-text-primary)] focus:outline-none cursor-pointer hover:text-[var(--color-accent)] transition-colors"
-            >
-              <option value="recent">Plus récentes</option>
-              <option value="rating">Mieux notées</option>
-            </select>
-          </div>
-          
-          {allTags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-              <button
-                onClick={() => setSelectedTagFilters([])}
-                className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-all ${
-                  selectedTagFilters.length === 0
-                    ? 'bg-[var(--color-accent)] text-white shadow-sm'
-                    : 'bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:border-[var(--color-accent)]'
-                }`}
-              >
-                Toutes
-              </button>
-              
-              {allTags.slice(0, showAllTags ? allTags.length : 3).map((tag) => {
-                const isSelected = selectedTagFilters.includes(tag.id);
-                return (
-                  <button
-                    key={tag.id}
-                    onClick={() => toggleTagFilter(tag.id)}
-                    className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-all ${
-                      isSelected
-                        ? 'bg-[var(--color-accent)] text-white shadow-sm transform scale-105'
-                        : 'bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:border-[var(--color-accent)] hover:text-[var(--color-text-primary)]'
-                    }`}
-                  >
-                    {tag.name}
-                  </button>
-                );
-              })}
-
-              {allTags.length > 3 && (
-                <button
-                  onClick={() => setShowAllTags(!showAllTags)}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-full text-[12px] font-medium text-[var(--color-accent)] bg-[rgba(196,112,75,0.08)] hover:bg-[rgba(196,112,75,0.15)] transition-colors"
-                >
-                  {showAllTags ? (
-                    <>Moins <span className="rotate-180 transform transition-transform text-[10px]">▼</span></>
-                  ) : (
-                    <>+ {allTags.length - 3} <span className="transition-transform text-[10px]">▼</span></>
-                  )}
-                </button>
-              )}
+      <div 
+        className={`sticky z-30 transition-all duration-300 ease-in-out bg-[var(--color-bg-primary)]/95 backdrop-blur-md py-4 -mx-10 px-10 mb-4 ${
+          isStuck ? 'border-b border-[var(--color-border-light)] shadow-[0_4px_12px_rgba(44,24,16,0.03)]' : ''
+        }`}
+        style={{
+          top: '80px',
+          transform: isHeaderVisible ? 'translateY(0)' : 'translateY(calc(-100% - 96px))',
+        }}
+      >
+        <div className="space-y-4">
+          <div className="relative">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]">
+              🔍
             </div>
-          )}
+            <input
+              type="text"
+              placeholder="Rechercher une recette..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-4 py-3.5 border border-[var(--color-border)] rounded-xl bg-[var(--color-bg-card)] text-[14px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-4 focus:ring-[rgba(196,112,75,0.12)]"
+            />
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            <div className="flex items-center gap-4 shrink-0">
+              <p className="text-[13px] font-medium text-[var(--color-text-secondary)]">
+                {recipes.length} recette{recipes.length > 1 ? 's' : ''}
+              </p>
+              <div className="h-4 w-px bg-[var(--color-border)] hidden sm:block"></div>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'recent' | 'rating')}
+                className="text-[13px] bg-transparent font-medium text-[var(--color-text-primary)] focus:outline-none cursor-pointer hover:text-[var(--color-accent)] transition-colors"
+              >
+                <option value="recent">Plus récentes</option>
+                <option value="rating">Mieux notées</option>
+              </select>
+            </div>
+            
+            {allTags.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                <button
+                  onClick={() => setSelectedTagFilters([])}
+                  className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-all ${
+                    selectedTagFilters.length === 0
+                      ? 'bg-[var(--color-accent)] text-white shadow-sm'
+                      : 'bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:border-[var(--color-accent)]'
+                  }`}
+                >
+                  Toutes
+                </button>
+                
+                {allTags.slice(0, showAllTags ? allTags.length : 3).map((tag) => {
+                  const isSelected = selectedTagFilters.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      onClick={() => toggleTagFilter(tag.id)}
+                      className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-all ${
+                        isSelected
+                          ? 'bg-[var(--color-accent)] text-white shadow-sm transform scale-105'
+                          : 'bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:border-[var(--color-accent)] hover:text-[var(--color-text-primary)]'
+                      }`}
+                    >
+                      {tag.name}
+                    </button>
+                  );
+                })}
+
+                {allTags.length > 3 && (
+                  <button
+                    onClick={() => setShowAllTags(!showAllTags)}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-full text-[12px] font-medium text-[var(--color-accent)] bg-[rgba(196,112,75,0.08)] hover:bg-[rgba(196,112,75,0.15)] transition-colors"
+                  >
+                    {showAllTags ? (
+                      <>Moins <span className="rotate-180 transform transition-transform text-[10px]">▼</span></>
+                    ) : (
+                      <>+ {allTags.length - 3} <span className="transition-transform text-[10px]">▼</span></>
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
