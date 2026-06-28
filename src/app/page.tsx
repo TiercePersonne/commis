@@ -45,8 +45,17 @@ export default async function Home() {
             initialRecipeTagsMap={recipeTagsMap}
             initialHasMore={hasMore || false}
           />
-        )}
-      </div>
+        )}      </div>
+
+      <a 
+        href="https://paypal.me/GJCommis" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full bg-[var(--color-bg-card)]/90 backdrop-blur-md border border-[var(--color-border-light)] text-xs text-[var(--color-text-secondary)] shadow-[0_8px_20px_-6px_rgba(44,24,16,0.15)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] hover:shadow-[0_8px_20px_-6px_rgba(196,112,75,0.25)] hover:scale-105 transition-all duration-200"
+      >
+        <span>🚗</span>
+        <span className="font-medium whitespace-nowrap">Buy me a <span className="line-through opacity-60">coffe</span> Lambo.</span>
+      </a>
     </AppLayout>
   );
 }
