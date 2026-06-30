@@ -124,25 +124,37 @@ export function RecipeFilters({ recipes, recipeTagsMap }: RecipeFiltersProps) {
   return (
     <>
       <div 
-        className={`sticky z-30 transition-all duration-300 ease-in-out bg-[var(--color-bg-primary)]/95 backdrop-blur-md py-4 -mx-10 px-10 mb-4 ${
-          isStuck ? 'border-b border-[var(--color-border-light)] shadow-[0_4px_12px_rgba(44,24,16,0.03)]' : ''
-        }`}
+        className={`sticky z-30 transition-all duration-300 ease-in-out mb-8 w-full`}
         style={{
-          top: '80px',
-          transform: isHeaderVisible ? 'translateY(0)' : 'translateY(calc(-100% - 96px))',
+          top: '84px',
+          transform: isHeaderVisible ? 'translateY(0)' : 'translateY(calc(-100% - 120px))',
         }}
       >
-        <div className="space-y-4">
+        <div 
+          className={`flex flex-col gap-4 p-4 rounded-[28px] transition-all duration-300 ${
+            isStuck 
+              ? 'bg-[var(--color-bg-card)]/75 backdrop-blur-xl shadow-[0_8px_32px_-8px_rgba(0,0,0,0.08)] border border-[var(--color-border-light)]' 
+              : 'bg-transparent'
+          }`}
+        >
           <div className="relative">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]">
-              🔍
+            <div className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] pointer-events-none">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
             </div>
             <input
               type="text"
               placeholder="Rechercher une recette..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3.5 border border-[var(--color-border)] rounded-xl bg-[var(--color-bg-card)] text-[14px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-4 focus:ring-[rgba(196,112,75,0.12)]"
+              className={`w-full pl-13 pr-5 py-3.5 rounded-full text-[15px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-4 focus:ring-[rgba(196,112,75,0.12)] transition-all ${
+                isStuck 
+                  ? 'bg-[var(--color-bg-primary)]/50 border border-[var(--color-border-light)]' 
+                  : 'bg-[var(--color-bg-card)] border border-[var(--color-border-light)] shadow-sm'
+              }`}
+              style={{ paddingLeft: '3.25rem' }}
             />
           </div>
 

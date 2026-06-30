@@ -89,17 +89,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="flex flex-col min-h-[100dvh] bg-[var(--color-bg-primary)]">
       {/* Floating Header Pill */}
       <header
-        className="fixed top-4 left-4 right-4 md:left-8 md:right-8 z-50 bg-[var(--color-bg-card)]/90 backdrop-blur-md rounded-[20px] border border-[var(--color-border)] px-4 md:px-6 py-3 flex items-center justify-between transition-all duration-300 ease-in-out"
+        className="fixed top-4 left-4 right-4 md:left-8 md:right-8 z-50 bg-[var(--color-bg-card)]/75 backdrop-blur-xl rounded-[24px] border border-[var(--color-border-light)] px-4 md:px-6 py-2.5 flex items-center justify-between transition-all duration-300 ease-in-out"
         style={{ 
-          boxShadow: '0 8px 30px -10px rgba(44, 24, 16, 0.1)',
+          boxShadow: '0 8px 32px -8px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.05)',
           transform: (isVisible || isMenuOpen) ? 'translateY(0)' : 'translateY(-100px)'
         }}
       >
-        <Link href="/" className="flex items-center pl-2">
+        <Link href="/" className="flex items-center pl-2 shrink-0">
           <img 
             src="/logo.svg" 
             alt="Commis" 
-            className="h-6 w-auto object-contain"
+            className="h-6 w-auto object-contain drop-shadow-sm"
           />
         </Link>
         
