@@ -51,6 +51,8 @@ export async function middleware(request: NextRequest) {
     pathname === "/login" || 
     pathname === "/register" || 
     pathname === "/forgot-password" || 
+    pathname === "/manifest.webmanifest" ||
+    pathname.startsWith("/apple-icon") ||
     pathname.startsWith("/api/") ||
     pathname.startsWith("/_next");
 
@@ -76,6 +78,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|webmanifest)$).*)",
   ],
 };

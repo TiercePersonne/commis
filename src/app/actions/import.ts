@@ -9,6 +9,18 @@ import type { ExtractedRecipe } from '@/lib/schemas/import-job';
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 
+async function getUserTagNames(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<string[]> {
+  const { data } = await supabase
+    .from('tags')
+    .select('name')
+    .eq('user_id', userId)
+    .order('name', { ascending: true });
+  return (data ?? []).map((t: { name: string }) => t.name);
+}
+
 export async function startImport(
   url: string
 ): Promise<ActionResult<{ recipe: ExtractedRecipe }>> {
@@ -26,6 +38,8 @@ export async function startImport(
   } catch {
     return { data: null, error: "URL invalide." };
   }
+
+  const existingTags = await getUserTagNames(supabase, user.id);
 
   const { data: job, error: createError } = await supabase
     .from('import_jobs')
@@ -48,7 +62,7 @@ export async function startImport(
         .from('import_jobs')
         .update({ status, updated_at: new Date().toISOString() })
         .eq('id', job.id);
-    });
+    }, existingTags);
 
     await supabase
       .from('import_jobs')
@@ -133,8 +147,10 @@ export async function startImportFromText(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, error: 'Non authentifié' };
 
+  const existingTags = await getUserTagNames(supabase, user.id);
+
   try {
-    const extracted = await extractFromText(text);
+    const extracted = await extractFromText(text, existingTags);
     return { data: { recipe: extracted }, error: null };
   } catch (error) {
     const message =
@@ -156,6 +172,8 @@ export async function startImportFromReel(
   if (!isSupportedVideoUrl(url)) {
     return { data: null, error: "URL invalide. Collez un lien Instagram, TikTok ou YouTube." };
   }
+
+  const existingTags = await getUserTagNames(supabase, user.id);
 
   const { data: job, error: createError } = await supabase
     .from('import_jobs')
@@ -180,7 +198,7 @@ export async function startImportFromReel(
         .from('import_jobs')
         .update({ status, updated_at: new Date().toISOString() })
         .eq('id', job.id);
-    }, cookiesContent);
+    }, cookiesContent, existingTags);
 
     await supabase
       .from('import_jobs')
@@ -212,6 +230,8 @@ export async function startImportFromImage(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, error: 'Non authentifié' };
 
+  const existingTags = await getUserTagNames(supabase, user.id);
+
   try {
     const file = formData.get('image');
 
@@ -235,7 +255,7 @@ export async function startImportFromImage(
     const base64Image = Buffer.from(buffer).toString('base64');
     const mimeType = file.type;
 
-    const extracted = await extractFromImage(base64Image, mimeType);
+    const extracted = await extractFromImage(base64Image, mimeType, existingTags);
     // B1 — Marquer le source_type correctement
     return { data: { recipe: { ...extracted, source_type: 'image' as const } }, error: null };
   } catch (error) {
@@ -247,4 +267,3 @@ export async function startImportFromImage(
     return { data: null, error: message };
   }
 }
-

@@ -1,7 +1,12 @@
 import type { ExtractedRecipe } from '@/lib/schemas/import-job';
 import { ImportError, IMPORT_ERROR_MESSAGES } from './import-web';
+import { buildTagPromptInstructions } from './tag-prompt';
 
-export async function extractFromImage(base64Image: string, mimeType: string): Promise<ExtractedRecipe> {
+export async function extractFromImage(
+  base64Image: string,
+  mimeType: string,
+  existingTags: string[] = []
+): Promise<ExtractedRecipe> {
   if (!process.env.GEMINI_API_KEY) {
     throw new ImportError(IMPORT_ERROR_MESSAGES.LLM_UNAVAILABLE, 'LLM_UNAVAILABLE');
   }
@@ -11,6 +16,8 @@ export async function extractFromImage(base64Image: string, mimeType: string): P
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
+    const tagInstructions = buildTagPromptInstructions(existingTags);
+
     const prompt = `Extrait la recette présente sur cette image et retourne un JSON avec exactement ces champs :
 {
   "title": "nom de la recette",
@@ -18,6 +25,8 @@ export async function extractFromImage(base64Image: string, mimeType: string): P
   "steps": ["étape 1 complète", "étape 2 complète"],
   "suggested_tags": ["tag1", "tag2"]
 }
+
+${tagInstructions}
 
 Règles :
 - Essaie de déduire les quantités si elles sont présentes.

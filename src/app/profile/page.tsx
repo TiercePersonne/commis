@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { AppLayout } from '@/app/components/app-layout';
+import { AiTagOrganizer } from '@/app/components/ai-tag-organizer';
 import { exportUserData, deleteAccount } from '@/app/actions/profile';
 import { logout } from '@/app/login/actions';
 
@@ -79,6 +80,8 @@ export default function ProfilePage() {
           )}
 
           <div className="space-y-6">
+            <AiTagOrganizer />
+
             <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-light)] rounded-2xl p-6">
               <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">
                 Exporter mes données

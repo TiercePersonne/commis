@@ -6,6 +6,7 @@ import { join } from 'path';
 import type { ExtractedRecipe } from '@/lib/schemas/import-job';
 import { ImportError, IMPORT_ERROR_MESSAGES } from './import-web';
 import { isSupportedVideoUrl } from './url-utils';
+import { buildTagPromptInstructions } from './tag-prompt';
 
 export { isSupportedVideoUrl };
 
@@ -189,7 +190,8 @@ async function extractRecipeFromAudio(
   audioPath: string | null,
   description: string,
   reelUrl: string,
-  thumbnail: string | null
+  thumbnail: string | null,
+  existingTags: string[] = []
 ): Promise<Omit<ExtractedRecipe, 'confidence'>> {
   if (!process.env.GEMINI_API_KEY) {
     throw new ImportError(IMPORT_ERROR_MESSAGES.LLM_UNAVAILABLE, 'LLM_UNAVAILABLE');
@@ -226,6 +228,8 @@ async function extractRecipeFromAudio(
     ? `\n\nDescription/légende du post :\n${description}`
     : '';
 
+  const tagInstructions = buildTagPromptInstructions(existingTags);
+
   const prompt = `Tu es un extracteur de recettes de cuisine. TOUTES TES RÉPONSES DOIVENT ÊTRE EN FRANÇAIS, quelle que soit la langue d'origine.
 
 Analyse ce contenu (audio si disponible, et description) issu d'un post (par ex. Instagram, TikTok ou YouTube) et extrait la recette présentée.${descriptionSection}
@@ -237,6 +241,8 @@ Retourne UNIQUEMENT un objet JSON valide avec ces champs (TOUT en français) :
   "steps": ["étape complète de préparation EN FRANÇAIS", ...],
   "suggested_tags": ["catégorie ou type de plat EN FRANÇAIS", ...]
 }
+
+${tagInstructions}
 
 Règles OBLIGATOIRES :
 - TOUT doit être écrit en français : titre, ingrédients, étapes, tags
@@ -278,7 +284,8 @@ Règles OBLIGATOIRES :
 export async function extractRecipeFromReel(
   reelUrl: string,
   onStatusUpdate: (status: string) => Promise<void>,
-  cookiesContent?: string | null
+  cookiesContent?: string | null,
+  existingTags: string[] = []
 ): Promise<ExtractedRecipe> {
   if (!isSupportedVideoUrl(reelUrl)) {
     throw new ImportError(IMPORT_ERROR_MESSAGES.INVALID_URL, 'INVALID_URL');
@@ -289,7 +296,7 @@ export async function extractRecipeFromReel(
 
   try {
     await onStatusUpdate('structuring');
-    const extracted = await extractRecipeFromAudio(audioPath, description, reelUrl, thumbnail);
+    const extracted = await extractRecipeFromAudio(audioPath, description, reelUrl, thumbnail, existingTags);
 
     const confidence: 'complete' | 'partial' =
       extracted.ingredients.length > 0 && extracted.steps.length > 0 ? 'complete' : 'partial';

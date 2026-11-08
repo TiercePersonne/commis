@@ -240,6 +240,7 @@ export function RecipePreview({ initialRecipe, onSave, onCancel, isSaving = fals
         <TagSelector
           selectedTags={selectedTagIds}
           onTagsChange={setSelectedTagIds}
+          suggestedTagNames={recipe.suggested_tags}
         />
       </div>
 

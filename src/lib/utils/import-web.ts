@@ -1,4 +1,5 @@
 import type { ExtractedRecipe } from '@/lib/schemas/import-job';
+import { buildTagPromptInstructions } from './tag-prompt';
 
 export class ImportError extends Error {
   constructor(
@@ -173,7 +174,11 @@ export function extractFromHtml(html: string): Omit<ExtractedRecipe, 'confidence
   return { title, ingredients, steps, image_url };
 }
 
-async function extractWithLlm(html: string, url: string): Promise<Omit<ExtractedRecipe, 'confidence'> | null> {
+async function extractWithLlm(
+  html: string,
+  url: string,
+  existingTags: string[] = []
+): Promise<Omit<ExtractedRecipe, 'confidence'> | null> {
   try {
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -190,6 +195,8 @@ async function extractWithLlm(html: string, url: string): Promise<Omit<Extracted
           .trim()
           .slice(0, 30000);
 
+    const tagInstructions = buildTagPromptInstructions(existingTags);
+
     const prompt = `Tu es un extracteur de recettes de cuisine. Analyse ce texte et retourne un objet JSON valide avec ces champs :
 {
   "title": "titre exact de la recette",
@@ -198,6 +205,8 @@ async function extractWithLlm(html: string, url: string): Promise<Omit<Extracted
   "image_url": "URL directe d'un fichier image (doit se terminer par .jpg, .jpeg, .png, .webp, .gif ou similaire) ou null — NE PAS mettre une URL de page web",
   "suggested_tags": ["catégorie ou type de plat", ...]
 }
+
+${tagInstructions}
 
 Règles importantes :
 - Si tu ne trouves pas de recette, retourne quand même le JSON avec les champs que tu as trouvés
@@ -235,7 +244,10 @@ ${textContent}`;
   }
 }
 
-export async function extractFromText(text: string): Promise<ExtractedRecipe> {
+export async function extractFromText(
+  text: string,
+  existingTags: string[] = []
+): Promise<ExtractedRecipe> {
   if (!process.env.GEMINI_API_KEY) {
     throw new ImportError(IMPORT_ERROR_MESSAGES.LLM_UNAVAILABLE, 'LLM_UNAVAILABLE');
   }
@@ -246,6 +258,7 @@ export async function extractFromText(text: string): Promise<ExtractedRecipe> {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const truncated = text.trim().slice(0, 30000);
+    const tagInstructions = buildTagPromptInstructions(existingTags);
 
     const prompt = `Extrait la recette depuis ce texte et retourne un JSON avec exactement ces champs :
 {
@@ -254,6 +267,8 @@ export async function extractFromText(text: string): Promise<ExtractedRecipe> {
   "steps": ["étape 1", "étape 2"],
   "suggested_tags": ["tag1", "tag2"]
 }
+
+${tagInstructions}
 
 Réponds UNIQUEMENT avec le JSON valide, rien d'autre.
 
@@ -289,12 +304,17 @@ function isComplete(result: Omit<ExtractedRecipe, 'confidence'>): boolean {
   return result.ingredients.length > 0 && result.steps.length > 0;
 }
 
-async function extractWithGeminiUrl(url: string): Promise<Omit<ExtractedRecipe, 'confidence'> | null> {
+async function extractWithGeminiUrl(
+  url: string,
+  existingTags: string[] = []
+): Promise<Omit<ExtractedRecipe, 'confidence'> | null> {
   if (!process.env.GEMINI_API_KEY) return null;
   try {
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+    const tagInstructions = buildTagPromptInstructions(existingTags);
 
     const prompt = `Va sur cette URL et extrait la recette de cuisine. Retourne UNIQUEMENT un JSON valide avec ces champs :
 {
@@ -304,6 +324,8 @@ async function extractWithGeminiUrl(url: string): Promise<Omit<ExtractedRecipe, 
   "image_url": "première URL d'image de la recette ou null",
   "suggested_tags": ["catégorie ou type de plat", ...]
 }
+
+${tagInstructions}
 
 URL : ${url}
 
@@ -334,7 +356,8 @@ Réponds UNIQUEMENT avec le JSON, sans backticks ni texte autour.`;
 
 export async function extractRecipeFromUrl(
   url: string,
-  onStatusUpdate: (status: string) => Promise<void>
+  onStatusUpdate: (status: string) => Promise<void>,
+  existingTags: string[] = []
 ): Promise<ExtractedRecipe> {
   await onStatusUpdate('downloading');
 
@@ -352,7 +375,7 @@ export async function extractRecipeFromUrl(
 
   if (process.env.GEMINI_API_KEY) {
     if (pageContent) {
-      const llmResult = await extractWithLlm(pageContent, url);
+      const llmResult = await extractWithLlm(pageContent, url, existingTags);
       if (llmResult) {
         const resolvedImage = llmResult.image_url ?? markdownImage ?? null;
         const normalized = { ...llmResult, image_url: normalizeImageUrl(resolvedImage, url), source_url: url };
@@ -360,7 +383,7 @@ export async function extractRecipeFromUrl(
       }
     }
 
-    const geminiUrlResult = await extractWithGeminiUrl(url);
+    const geminiUrlResult = await extractWithGeminiUrl(url, existingTags);
     if (geminiUrlResult) {
       const resolvedImage = geminiUrlResult.image_url ?? markdownImage ?? null;
       const normalized = { ...geminiUrlResult, image_url: normalizeImageUrl(resolvedImage, url), source_url: url };

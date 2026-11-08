@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { updateRecipe } from '@/app/actions/recipes';
 import { getRecipeTags } from '@/app/actions/tags';
+import { suggestTagsForRecipe } from '@/app/actions/ai-tags';
 import { TagSelector } from '@/app/components/tag-selector';
 import { AppLayout } from '@/app/components/app-layout';
 import type { RecipeItem, Recipe } from '@/lib/schemas/recipe';
@@ -21,6 +22,8 @@ export default function EditRecipePage({
   const [steps, setSteps] = useState<RecipeItem[]>([{ text: '', order: 0 }]);
   const [title, setTitle] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [suggestedTagNames, setSuggestedTagNames] = useState<string[]>([]);
+  const [isSuggestingTags, setIsSuggestingTags] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -225,10 +228,34 @@ export default function EditRecipePage({
           </div>
 
           <div>
-            <label className="block text-lg font-medium text-[var(--color-text-primary)] mb-4">
-              Tags
-            </label>
-            <TagSelector selectedTags={selectedTags} onTagsChange={setSelectedTags} />
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <label className="block text-lg font-medium text-[var(--color-text-primary)]">
+                Tags
+              </label>
+              <button
+                type="button"
+                disabled={isPending || isSuggestingTags || !title.trim()}
+                onClick={async () => {
+                  setIsSuggestingTags(true);
+                  const res = await suggestTagsForRecipe(
+                    title,
+                    ingredients.map((i) => i.text).filter(Boolean)
+                  );
+                  if (res.data) {
+                    setSuggestedTagNames(res.data);
+                  }
+                  setIsSuggestingTags(false);
+                }}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-[rgba(196,112,75,0.1)] text-[var(--color-accent)] border border-[rgba(196,112,75,0.25)] hover:bg-[rgba(196,112,75,0.18)] disabled:opacity-50 transition-colors"
+              >
+                {isSuggestingTags ? '✨ Analyse IA…' : '✨ Suggérer des tags par IA'}
+              </button>
+            </div>
+            <TagSelector
+              selectedTags={selectedTags}
+              onTagsChange={setSelectedTags}
+              suggestedTagNames={suggestedTagNames}
+            />
             <input type="hidden" name="tags" value={JSON.stringify(selectedTags)} />
           </div>
 
