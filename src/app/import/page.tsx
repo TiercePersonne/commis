@@ -6,14 +6,31 @@ import { AlertCircle } from 'lucide-react';
 import { AppLayout } from '@/app/components/app-layout';
 import { ImportSourceSelector } from '@/app/components/import-source-selector';
 import { RecipePreview } from '@/app/components/recipe-preview';
-import { startImport, startImportFromText, startImportFromReel, startImportFromImage } from '@/app/actions/import';
+import {
+  startImport,
+  startImportFromText,
+  startImportFromReel,
+  startImportFromImage,
+} from '@/app/actions/import';
+import {
+  getQueuedLinks,
+  enqueueSharedLink,
+  removeQueuedLinkByUrl,
+  clearAllQueuedLinks,
+  type QueuedLinkItem,
+} from '@/app/actions/inbox';
 import { saveImportedRecipe } from '@/app/actions/recipes';
 import { loadDraft, clearDraft } from '@/lib/utils/draft';
 import type { ExtractedRecipe } from '@/lib/schemas/import-job';
 
-type PageState = 'idle' | 'loading' | 'loading-reel' | 'loading-image' | 'preview' | 'saving' | 'error';
-
-
+type PageState =
+  | 'idle'
+  | 'loading'
+  | 'loading-reel'
+  | 'loading-image'
+  | 'preview'
+  | 'saving'
+  | 'error';
 
 export default function ImportPage() {
   const router = useRouter();
@@ -22,6 +39,8 @@ export default function ImportPage() {
   const [importError, setImportError] = useState<string | null>(null);
   const [draftBanner, setDraftBanner] = useState(false);
   const [draftRecipe, setDraftRecipe] = useState<Partial<ExtractedRecipe> | null>(null);
+  const [queuedLinks, setQueuedLinks] = useState<QueuedLinkItem[]>([]);
+  const [sharedToast, setSharedToast] = useState<string | null>(null);
 
   useEffect(() => {
     const draft = loadDraft();
@@ -29,7 +48,42 @@ export default function ImportPage() {
       setDraftBanner(true);
       setDraftRecipe(draft);
     }
+
+    const initInbox = async () => {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const sharedParam =
+          params.get('shared') || params.get('url') || params.get('text');
+
+        if (sharedParam) {
+          const enq = await enqueueSharedLink(sharedParam);
+          if (enq.item) {
+            setSharedToast(
+              'Recette ajoutée à ta file d’attente ! Tu peux lancer l’import ou retourner sur Instagram.'
+            );
+          }
+          window.history.replaceState({}, '', '/import');
+        }
+      }
+
+      const res = await getQueuedLinks();
+      if (res.items) {
+        setQueuedLinks(res.items);
+      }
+    };
+
+    initInbox();
   }, []);
+
+  const handleRemoveQueuedLink = async (url: string) => {
+    setQueuedLinks((prev) => prev.filter((item) => item.source_url !== url));
+    await removeQueuedLinkByUrl(url);
+  };
+
+  const handleClearQueuedLinks = async () => {
+    setQueuedLinks([]);
+    await clearAllQueuedLinks();
+  };
 
   const handleImportStart = async (_jobId: string, url: string) => {
     setImportError(null);
@@ -140,10 +194,22 @@ export default function ImportPage() {
   return (
     <AppLayout>
       <div className="px-4 md:px-10 pb-10">
+        {sharedToast && (
+          <div className="mt-4 max-w-2xl mx-auto p-3.5 bg-green-50 border border-green-200 rounded-xl flex items-center justify-between gap-3 text-xs font-medium text-green-900">
+            <span>✅ {sharedToast}</span>
+            <button
+              type="button"
+              onClick={() => setSharedToast(null)}
+              className="text-green-700 hover:text-green-950 font-bold"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         {/* Banner brouillon */}
         {draftBanner && pageState === 'idle' && (
-          <div className="mt-4 max-w-2xl p-4 bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-[var(--radius-md)] flex items-center justify-between gap-4">
+          <div className="mt-4 max-w-2xl mx-auto p-4 bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-[var(--radius-md)] flex items-center justify-between gap-4">
             <p className="text-[14px] text-[var(--color-text-primary)]">
               Vous avez un brouillon non sauvegardé. Voulez-vous le reprendre ?
             </p>
@@ -172,10 +238,11 @@ export default function ImportPage() {
             onReelImport={handleReelImport}
             onImageImport={handleImageImport}
             onBulkDone={handleBulkDone}
+            queuedLinks={queuedLinks}
+            onRemoveQueuedLink={handleRemoveQueuedLink}
+            onClearQueuedLinks={handleClearQueuedLinks}
           />
         )}
-
-
 
         {/* Aperçu + correction */}
         {(pageState === 'preview' || pageState === 'saving') && extractedRecipe && (
@@ -193,12 +260,18 @@ export default function ImportPage() {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-50 text-red-500 mb-4">
               <AlertCircle size={32} />
             </div>
-            <h3 className="text-[18px] font-bold text-[var(--color-text-primary)] mb-2">Aïe, l&apos;import a échoué</h3>
-            <p className="text-[14px] text-[var(--color-text-secondary)] mb-8 px-4">{importError}</p>
+            <h3 className="text-[18px] font-bold text-[var(--color-text-primary)] mb-2">
+              Aïe, l&apos;import a échoué
+            </h3>
+            <p className="text-[14px] text-[var(--color-text-secondary)] mb-8 px-4">
+              {importError}
+            </p>
 
-            {importError?.includes('Impossible d\'extraire la recette depuis cette page') && (
+            {importError?.includes("Impossible d'extraire la recette depuis cette page") && (
               <div className="mb-6 p-5 bg-orange-50 rounded-[var(--radius-lg)] border border-orange-100 text-left max-w-md mx-auto">
-                <p className="text-[14px] text-orange-900 font-bold mb-1">Astuce : Le site bloque notre robot 🤖</p>
+                <p className="text-[14px] text-orange-900 font-bold mb-1">
+                  Astuce : Le site bloque notre robot 🤖
+                </p>
                 <p className="text-[13px] text-orange-800 mb-4">
                   Prenez simplement la recette en photo ou faites une capture d&apos;écran, et utilisez notre outil de reconnaissance visuelle.
                 </p>

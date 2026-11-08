@@ -1,24 +1,21 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { BulkImportView } from './bulk-import-view';
+import type { QueuedLinkItem } from '@/app/actions/inbox';
 
 type SelectedSource = 'web' | 'text' | 'reel' | 'image' | 'bulk';
-
-import { useEffect } from 'react';
 
 function FakeProgressButton({ source }: { source: 'web' | 'reel' | 'image' | 'text' }) {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     const max = 95;
-    // Vitesse adaptée selon la vraie durée moyenne estimée de chaque type d'import
-    const speedFactor = source === 'reel' ? 0.04 : (source === 'image' ? 0.08 : 0.2);
-    
+    const speedFactor = source === 'reel' ? 0.04 : source === 'image' ? 0.08 : 0.2;
+
     const timer = setInterval(() => {
-      setProgress(p => {
+      setProgress((p) => {
         if (p < max) {
-          // Progression décélérée : avance très vite au début, puis ralentit
           const increment = (max - p) * speedFactor;
           return Math.min(p + increment, max);
         }
@@ -31,46 +28,46 @@ function FakeProgressButton({ source }: { source: 'web' | 'reel' | 'image' | 'te
 
   const steps = {
     web: [
-      "Visite du site web...", 
-      "Lecture de la recette...", 
-      "L'IA prépare les ingrédients...", 
-      "Dressage presque terminé..."
+      'Visite du site web...',
+      'Lecture de la recette...',
+      "L'IA prépare les ingrédients...",
+      'Dressage presque terminé...',
     ],
     reel: [
-      "Visionnage de la vidéo...", 
-      "L'IA prend des notes...", 
-      "Organisation des étapes...", 
-      "On dresse l'assiette..."
+      'Visionnage de la vidéo...',
+      "L'IA prend des notes...",
+      'Organisation des étapes...',
+      "On dresse l'assiette...",
     ],
     image: [
-      "L'IA étudie votre image...", 
-      "Déchiffrage du menu...", 
-      "Mise au propre...", 
-      "Dernières retouches..."
+      "L'IA étudie votre image...",
+      'Déchiffrage du menu...',
+      'Mise au propre...',
+      'Dernières retouches...',
     ],
     text: [
-      "Lecture de vos notes...", 
-      "Tri des informations...", 
-      "Mise dans le bon ordre...", 
-      "C'est presque prêt !"
-    ]
+      'Lecture de vos notes...',
+      'Tri des informations...',
+      'Mise dans le bon ordre...',
+      "C'est presque prêt !",
+    ],
   }[source];
 
-  // L'index change en fonction de l'avancement de la jauge
-  const stepIndex = progress < 25 ? 0 :
-                    progress < 55 ? 1 :
-                    progress < 85 ? 2 : 3;
-                    
+  const stepIndex = progress < 25 ? 0 : progress < 55 ? 1 : progress < 85 ? 2 : 3;
   const currentText = steps[stepIndex];
 
   return (
     <div className="w-full mt-4">
       <div className="flex justify-between items-center mb-2 px-1">
-        <span className="text-[14px] font-medium text-[var(--color-accent)] animate-pulse">{currentText}</span>
-        <span className="text-[13px] font-bold text-[var(--color-text-muted)]">{Math.round(progress)}%</span>
+        <span className="text-[14px] font-medium text-[var(--color-accent)] animate-pulse">
+          {currentText}
+        </span>
+        <span className="text-[13px] font-bold text-[var(--color-text-muted)]">
+          {Math.round(progress)}%
+        </span>
       </div>
       <div className="h-4 w-full bg-[var(--color-border-light)] rounded-full overflow-hidden shadow-inner">
-        <div 
+        <div
           className="h-full bg-[var(--color-accent)] transition-all duration-300"
           style={{ width: `${progress}%` }}
         />
@@ -79,7 +76,6 @@ function FakeProgressButton({ source }: { source: 'web' | 'reel' | 'image' | 'te
   );
 }
 
-// E19 — compressImage extrait en dehors du composant (fonction pure, pas de dépendances d'instance)
 function compressImage(file: File): Promise<File> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -113,7 +109,12 @@ function compressImage(file: File): Promise<File> {
         canvas.toBlob(
           (blob) => {
             if (blob) {
-              resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpeg", { type: 'image/jpeg', lastModified: Date.now() }));
+              resolve(
+                new File([blob], file.name.replace(/\.[^/.]+$/, '') + '.jpeg', {
+                  type: 'image/jpeg',
+                  lastModified: Date.now(),
+                })
+              );
             } else {
               reject(new Error('Canvas to Blob failed'));
             }
@@ -134,31 +135,48 @@ interface ImportSourceSelectorProps {
   onReelImport?: (url: string) => void;
   onImageImport?: (formData: FormData) => void;
   onBulkDone?: () => void;
+  queuedLinks?: QueuedLinkItem[];
+  onRemoveQueuedLink?: (url: string) => void;
+  onClearQueuedLinks?: () => void;
+  initialTab?: SelectedSource;
 }
 
 function isValidUrl(url: string): boolean {
   return url.startsWith('http://') || url.startsWith('https://');
 }
 
-export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport, onImageImport, onBulkDone }: ImportSourceSelectorProps) {
-  // E13/17 — Initialiser à 'web' pour éviter désynchronisation avec activeTab
-  const [selectedSource, setSelectedSource] = useState<SelectedSource>('web');
+export function ImportSourceSelector({
+  onImportStart,
+  onTextImport,
+  onReelImport,
+  onImageImport,
+  onBulkDone,
+  queuedLinks = [],
+  onRemoveQueuedLink,
+  onClearQueuedLinks,
+  initialTab = 'web',
+}: ImportSourceSelectorProps) {
+  const [selectedSource, setSelectedSource] = useState<SelectedSource>(initialTab);
   const [url, setUrl] = useState('');
   const [urlError, setUrlError] = useState<string | null>(null);
   const [reelUrl, setReelUrl] = useState('');
   const [reelUrlError, setReelUrlError] = useState<string | null>(null);
   const [pastedText, setPastedText] = useState('');
+  const [autoStartSignal, setAutoStartSignal] = useState(0);
   const [isPending, startTransition] = useTransition();
 
-
-  // E16 — handleCardClick était dead code depuis le refactoring vers handleTabClick
+  useEffect(() => {
+    if (initialTab !== 'web') {
+      setSelectedSource(initialTab);
+    }
+  }, [initialTab]);
 
   const handleUrlSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setUrlError(null);
 
     if (!isValidUrl(url.trim())) {
-      setUrlError("URL invalide. Veuillez coller une adresse web commençant par http:// ou https://");
+      setUrlError('URL invalide. Veuillez coller une adresse web commençant par http:// ou https://');
       return;
     }
 
@@ -175,11 +193,16 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
 
     const trimmed = reelUrl.trim();
     if (!isValidUrl(trimmed)) {
-      setReelUrlError("URL invalide. Collez un lien Instagram, TikTok ou YouTube commençant par https://");
+      setReelUrlError('URL invalide. Collez un lien Instagram, TikTok ou YouTube commençant par https://');
       return;
     }
-    if (!trimmed.includes('instagram.com') && !trimmed.includes('tiktok.com') && !trimmed.includes('youtube.com') && !trimmed.includes('youtu.be')) {
-      setReelUrlError("Ce lien ne semble pas être un lien Instagram, TikTok ou YouTube valide.");
+    if (
+      !trimmed.includes('instagram.com') &&
+      !trimmed.includes('tiktok.com') &&
+      !trimmed.includes('youtube.com') &&
+      !trimmed.includes('youtu.be')
+    ) {
+      setReelUrlError('Ce lien ne semble pas être un lien Instagram, TikTok ou YouTube valide.');
       return;
     }
 
@@ -201,241 +224,372 @@ export function ImportSourceSelector({ onImportStart, onTextImport, onReelImport
     });
   };
 
-  const tabButtonClass = (isActive: boolean) => 
-    `flex-1 min-w-[100px] sm:min-w-[120px] py-4 px-3 text-[13px] font-semibold rounded-[var(--radius-lg)] flex flex-col items-center justify-center gap-2 transition-all ${
-      isActive 
-        ? 'bg-[var(--color-bg-card)] text-[var(--color-accent)] border-2 border-[var(--color-accent)] shadow-[0_4px_12px_rgba(0,0,0,0.05)] scale-[1.02]' 
+  const tabButtonClass = (isActive: boolean) =>
+    `flex-1 min-w-[100px] sm:min-w-[120px] py-4 px-3 text-[13px] font-semibold rounded-[var(--radius-lg)] flex flex-col items-center justify-center gap-2 transition-all relative ${
+      isActive
+        ? 'bg-[var(--color-bg-card)] text-[var(--color-accent)] border-2 border-[var(--color-accent)] shadow-[0_4px_12px_rgba(0,0,0,0.05)] scale-[1.02]'
         : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-2 border-transparent hover:bg-[var(--color-bg-card)] hover:shadow-sm'
     }`;
 
-  // selectedSource est toujours initialisé à 'web', le fallback n'est plus nécessaire
   const activeTab = selectedSource;
 
-  const handleTabClick = (source: 'web' | 'text' | 'reel' | 'image' | 'bulk') => {
+  const handleTabClick = (source: SelectedSource) => {
     setSelectedSource(source);
     setUrlError(null);
     setReelUrlError(null);
   };
 
+  const handleImportAllQueued = () => {
+    setSelectedSource('bulk');
+    setAutoStartSignal((s) => s + 1);
+  };
+
+  const queuedUrls = queuedLinks.map((q) => q.source_url);
+
   return (
-    <div className="mt-4 md:mt-8 max-w-2xl mx-auto flex flex-col-reverse gap-6">
-
-      {/* Barre d'onglets au même niveau - maintenant affichée en dessous grâce à flex-col-reverse */}
-      <div className="flex flex-wrap gap-2 md:gap-3">
-        <button 
-          type="button"
-          onClick={() => handleTabClick('web')}
-          className={tabButtonClass(activeTab === 'web')}
-        >
-          <span className="text-xl md:text-2xl mb-0.5">🌐</span>
-          Site Web
-        </button>
-        <button 
-          type="button"
-          onClick={() => handleTabClick('reel')}
-          className={tabButtonClass(activeTab === 'reel')}
-        >
-          <span className="text-xl md:text-2xl mb-0.5">🎬</span>
-          Vidéo Courte
-        </button>
-        <button 
-          type="button"
-          onClick={() => handleTabClick('image')}
-          className={tabButtonClass(activeTab === 'image')}
-        >
-          <span className="text-xl md:text-2xl mb-0.5">📸</span>
-          Photo
-        </button>
-        <button 
-          type="button"
-          onClick={() => handleTabClick('text')}
-          className={tabButtonClass(activeTab === 'text')}
-        >
-          <span className="text-xl md:text-2xl mb-0.5">📋</span>
-          Texte
-        </button>
-        <button 
-          type="button"
-          onClick={() => handleTabClick('bulk')}
-          className={tabButtonClass(activeTab === 'bulk')}
-        >
-          <span className="text-xl md:text-2xl mb-0.5">📦</span>
-          En masse
-        </button>
-      </div>
-
-      {/* Contenu de l'onglet actif (Affiché au dessus par flex-col-reverse) */}
-      <div className="bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-[var(--radius-xl)] shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
-        
-        {activeTab === 'web' && (
-          <div className="p-6 sm:p-8">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6 text-center sm:text-left">
-              <div className="w-12 h-12 shrink-0 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center text-2xl border border-blue-100">🌐</div>
-              <div>
-                <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">Importer depuis un site web</h4>
-                <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">Collez le lien d&apos;un blog culinaire ou d&apos;un site de recettes. L&apos;IA lira la page pour vous.</p>
-              </div>
+    <div className="mt-4 md:mt-8 max-w-2xl mx-auto space-y-6">
+      {/* Encart Boîte de réception des liens partagés (Instagram / TikTok / Web) */}
+      {queuedLinks.length > 0 && (
+        <div className="p-5 bg-[var(--color-bg-card)] border-2 border-[var(--color-accent)] rounded-[var(--radius-xl)] shadow-sm space-y-3">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <h3 className="text-[15px] font-bold text-[var(--color-text-primary)] flex items-center gap-2">
+                <span>📥</span>
+                <span>
+                  {queuedLinks.length} recette{queuedLinks.length > 1 ? 's' : ''} mise
+                  {queuedLinks.length > 1 ? 's' : ''} de côté depuis tes partages
+                </span>
+              </h3>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
+                Prêtes à être importées et étiquetées automatiquement en un clic.
+              </p>
             </div>
-            <form onSubmit={handleUrlSubmit} className="flex flex-col gap-3">
-              <input
-                type="url"
-                value={url}
-                onChange={(e) => { setUrl(e.target.value); if (urlError) setUrlError(null); }}
-                placeholder="https://www.marmiton.org/recettes/..."
-                disabled={isPending}
-                className={`w-full px-4 py-3.5 text-[15px] border rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30 disabled:opacity-50 ${
-                  urlError ? 'border-red-400 bg-red-50' : 'border-[var(--color-border)] hover:border-[var(--color-border-hover)]'
-                }`}
-              />
-              {urlError && <p className="text-[13px] text-red-600 pl-1 font-medium">{urlError}</p>}
-              {isPending ? (
-                <FakeProgressButton source="web" />
-              ) : (
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleImportAllQueued}
+                className="px-4 py-2 bg-[var(--color-accent)] text-white rounded-xl text-xs font-bold hover:bg-[var(--accent-primary-hover)] transition-colors shadow-sm"
+              >
+                ⚡ Tout importer ({queuedLinks.length})
+              </button>
+              {onClearQueuedLinks && (
                 <button
-                  type="submit"
-                  disabled={!url.trim()}
-                  className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[15px] font-bold rounded-[var(--radius-md)] shadow-md hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 transition-all active:scale-[0.98]"
+                  type="button"
+                  onClick={onClearQueuedLinks}
+                  className="px-3 py-2 border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-red-600 rounded-xl text-xs font-medium transition-colors"
                 >
-                  Importer la recette
+                  Vider
                 </button>
               )}
-            </form>
-          </div>
-        )}
-
-        {activeTab === 'reel' && (
-          <div className="p-6 sm:p-8">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6 text-center sm:text-left">
-              <div className="w-12 h-12 shrink-0 bg-purple-50 text-purple-500 rounded-full flex items-center justify-center text-2xl border border-purple-100">🎬</div>
-              <div>
-                <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">Instagram, TikTok ou YouTube</h4>
-                <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">Collez le lien de la vidéo. L&apos;IA écoutera l&apos;audio et analysera l&apos;image de couverture.</p>
-              </div>
             </div>
-            <form onSubmit={handleReelSubmit} className="flex flex-col gap-3">
-              <input
-                type="url"
-                value={reelUrl}
-                onChange={(e) => { setReelUrl(e.target.value); if (reelUrlError) setReelUrlError(null); }}
-                placeholder="Lien Instagram, TikTok, YouTube..."
-                disabled={isPending}
-                className={`w-full px-4 py-3.5 text-[15px] border rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30 disabled:opacity-50 ${
-                  reelUrlError ? 'border-red-400 bg-red-50' : 'border-[var(--color-border)] hover:border-[var(--color-border-hover)]'
-                }`}
-              />
-              {reelUrlError && <p className="text-[13px] text-red-600 pl-1 font-medium">{reelUrlError}</p>}
-              {isPending ? (
-                <FakeProgressButton source="reel" />
-              ) : (
-                <button
-                  type="submit"
-                  disabled={!reelUrl.trim()}
-                  className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[15px] font-bold rounded-[var(--radius-md)] shadow-md hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 transition-all active:scale-[0.98]"
-                >
-                  Transcrire cette vidéo
-                </button>
-              )}
-            </form>
           </div>
-        )}
 
-        {activeTab === 'image' && (
-          <div className="p-6 sm:p-8 flex flex-col items-center text-center">
-            <div className="w-14 h-14 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center text-3xl mb-4 border border-orange-100 shadow-sm">📸</div>
-            <h4 className="text-[18px] font-bold text-[var(--color-text-primary)] mb-2">Scanner une image</h4>
-            <p className="text-[14px] text-[var(--color-text-secondary)] mb-8 max-w-sm">
-              Prenez en photo une page de livre ou soumettez une capture d&apos;écran de votre téléphone.
-            </p>
-            
-            <label className={`w-full max-w-xs relative overflow-hidden flex flex-col items-center justify-center border-2 border-dashed rounded-[var(--radius-xl)] px-6 py-10 transition-colors cursor-pointer group ${isPending ? 'opacity-50 pointer-events-none' : 'border-[var(--color-border)] hover:border-[var(--color-accent)] hover:bg-[var(--color-bg-secondary)]'}`}>
-              {isPending ? (
-                <FakeProgressButton source="image" />
-              ) : (
-                <>
-                  <div className="text-3xl mb-3 text-[var(--color-text-muted)] group-hover:text-[var(--color-accent)] transition-colors">➕</div>
-                  <span className="text-[14px] font-bold text-[var(--color-text-primary)]">Choisir une image</span>
-                  <span className="text-[12px] text-[var(--color-text-muted)] mt-1">Appareil photo ou Galerie</span>
-                  
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
+          <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+            {queuedLinks.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[var(--color-bg-primary)] border border-[var(--color-border-light)] text-xs"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span>{item.source_type === 'reel' ? '🎬' : '🌐'}</span>
+                  <span className="truncate text-[var(--color-text-secondary)] font-mono">
+                    {item.source_url}
+                  </span>
+                </div>
+                {onRemoveQueuedLink && (
+                  <button
+                    type="button"
+                    onClick={() => onRemoveQueuedLink(item.source_url)}
+                    aria-label="Retirer ce lien"
+                    className="text-[var(--color-text-muted)] hover:text-red-600 px-1.5 font-bold"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-                      let fileToUpload = file;
-                      try {
-                        fileToUpload = await compressImage(file);
-                      } catch (err) {
-                        console.error('Image compression failed', err);
-                      }
+      <div className="flex flex-col-reverse gap-6">
+        {/* Barre d'onglets */}
+        <div className="flex flex-wrap gap-2 md:gap-3">
+          <button
+            type="button"
+            onClick={() => handleTabClick('web')}
+            className={tabButtonClass(activeTab === 'web')}
+          >
+            <span className="text-xl md:text-2xl mb-0.5">🌐</span>
+            Site Web
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabClick('reel')}
+            className={tabButtonClass(activeTab === 'reel')}
+          >
+            <span className="text-xl md:text-2xl mb-0.5">🎬</span>
+            Vidéo Courte
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabClick('image')}
+            className={tabButtonClass(activeTab === 'image')}
+          >
+            <span className="text-xl md:text-2xl mb-0.5">📸</span>
+            Photo
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabClick('text')}
+            className={tabButtonClass(activeTab === 'text')}
+          >
+            <span className="text-xl md:text-2xl mb-0.5">📋</span>
+            Texte
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabClick('bulk')}
+            className={tabButtonClass(activeTab === 'bulk')}
+          >
+            {queuedLinks.length > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--color-accent)] text-white shadow">
+                {queuedLinks.length}
+              </span>
+            )}
+            <span className="text-xl md:text-2xl mb-0.5">📦</span>
+            En masse
+          </button>
+        </div>
 
-                      const formData = new FormData();
-                      formData.append('image', fileToUpload);
-                      startTransition(async () => {
-                        if (onImageImport) {
-                          await onImageImport(formData);
+        {/* Contenu de l'onglet actif */}
+        <div className="bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-[var(--radius-xl)] shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+          {activeTab === 'web' && (
+            <div className="p-6 sm:p-8">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6 text-center sm:text-left">
+                <div className="w-12 h-12 shrink-0 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center text-2xl border border-blue-100">
+                  🌐
+                </div>
+                <div>
+                  <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">
+                    Importer depuis un site web
+                  </h4>
+                  <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">
+                    Collez le lien d&apos;un blog culinaire ou d&apos;un site de recettes. L&apos;IA lira la page pour vous.
+                  </p>
+                </div>
+              </div>
+              <form onSubmit={handleUrlSubmit} className="flex flex-col gap-3">
+                <input
+                  type="url"
+                  value={url}
+                  onChange={(e) => {
+                    setUrl(e.target.value);
+                    if (urlError) setUrlError(null);
+                  }}
+                  placeholder="https://www.marmiton.org/recettes/..."
+                  disabled={isPending}
+                  className={`w-full px-4 py-3.5 text-[15px] border rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30 disabled:opacity-50 ${
+                    urlError
+                      ? 'border-red-400 bg-red-50'
+                      : 'border-[var(--color-border)] hover:border-[var(--color-border-hover)]'
+                  }`}
+                />
+                {urlError && (
+                  <p className="text-[13px] text-red-600 pl-1 font-medium">{urlError}</p>
+                )}
+                {isPending ? (
+                  <FakeProgressButton source="web" />
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!url.trim()}
+                    className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[15px] font-bold rounded-[var(--radius-md)] shadow-md hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 transition-all active:scale-[0.98]"
+                  >
+                    Importer la recette
+                  </button>
+                )}
+              </form>
+            </div>
+          )}
+
+          {activeTab === 'reel' && (
+            <div className="p-6 sm:p-8">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6 text-center sm:text-left">
+                <div className="w-12 h-12 shrink-0 bg-purple-50 text-purple-500 rounded-full flex items-center justify-center text-2xl border border-purple-100">
+                  🎬
+                </div>
+                <div>
+                  <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">
+                    Instagram, TikTok ou YouTube
+                  </h4>
+                  <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">
+                    Collez le lien de la vidéo. L&apos;IA écoutera l&apos;audio et analysera l&apos;image de couverture.
+                  </p>
+                </div>
+              </div>
+              <form onSubmit={handleReelSubmit} className="flex flex-col gap-3">
+                <input
+                  type="url"
+                  value={reelUrl}
+                  onChange={(e) => {
+                    setReelUrl(e.target.value);
+                    if (reelUrlError) setReelUrlError(null);
+                  }}
+                  placeholder="Lien Instagram, TikTok, YouTube..."
+                  disabled={isPending}
+                  className={`w-full px-4 py-3.5 text-[15px] border rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30 disabled:opacity-50 ${
+                    reelUrlError
+                      ? 'border-red-400 bg-red-50'
+                      : 'border-[var(--color-border)] hover:border-[var(--color-border-hover)]'
+                  }`}
+                />
+                {reelUrlError && (
+                  <p className="text-[13px] text-red-600 pl-1 font-medium">{reelUrlError}</p>
+                )}
+                {isPending ? (
+                  <FakeProgressButton source="reel" />
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!reelUrl.trim()}
+                    className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[15px] font-bold rounded-[var(--radius-md)] shadow-md hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 transition-all active:scale-[0.98]"
+                  >
+                    Transcrire cette vidéo
+                  </button>
+                )}
+              </form>
+            </div>
+          )}
+
+          {activeTab === 'image' && (
+            <div className="p-6 sm:p-8 flex flex-col items-center text-center">
+              <div className="w-14 h-14 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center text-3xl mb-4 border border-orange-100 shadow-sm">
+                📸
+              </div>
+              <h4 className="text-[18px] font-bold text-[var(--color-text-primary)] mb-2">
+                Scanner une image
+              </h4>
+              <p className="text-[14px] text-[var(--color-text-secondary)] mb-8 max-w-sm">
+                Prenez en photo une page de livre ou soumettez une capture d&apos;écran de votre téléphone.
+              </p>
+
+              <label
+                className={`w-full max-w-xs relative overflow-hidden flex flex-col items-center justify-center border-2 border-dashed rounded-[var(--radius-xl)] px-6 py-10 transition-colors cursor-pointer group ${
+                  isPending
+                    ? 'opacity-50 pointer-events-none'
+                    : 'border-[var(--color-border)] hover:border-[var(--color-accent)] hover:bg-[var(--color-bg-secondary)]'
+                }`}
+              >
+                {isPending ? (
+                  <FakeProgressButton source="image" />
+                ) : (
+                  <>
+                    <div className="text-3xl mb-3 text-[var(--color-text-muted)] group-hover:text-[var(--color-accent)] transition-colors">
+                      ➕
+                    </div>
+                    <span className="text-[14px] font-bold text-[var(--color-text-primary)]">
+                      Choisir une image
+                    </span>
+                    <span className="text-[12px] text-[var(--color-text-muted)] mt-1">
+                      Appareil photo ou Galerie
+                    </span>
+
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+
+                        let fileToUpload = file;
+                        try {
+                          fileToUpload = await compressImage(file);
+                        } catch (err) {
+                          console.error('Image compression failed', err);
                         }
-                      });
-                    }}
-                  />
-                </>
-              )}
-            </label>
-          </div>
-        )}
 
-        {activeTab === 'text' && (
-          <div className="p-6 sm:p-8">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6 text-center sm:text-left">
-              <div className="w-12 h-12 shrink-0 bg-yellow-50 text-yellow-600 rounded-full flex items-center justify-center text-2xl border border-yellow-100">📋</div>
-              <div>
-                <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">Texte copié</h4>
-                <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">Collez n&apos;importe quel texte désorganisé contenant des ingrédients d&apos;une recette.</p>
-              </div>
+                        const formData = new FormData();
+                        formData.append('image', fileToUpload);
+                        startTransition(async () => {
+                          if (onImageImport) {
+                            await onImageImport(formData);
+                          }
+                        });
+                      }}
+                    />
+                  </>
+                )}
+              </label>
             </div>
-            <form onSubmit={handleTextSubmit} className="flex flex-col gap-3">
-              <textarea
-                value={pastedText}
-                onChange={(e) => setPastedText(e.target.value)}
-                placeholder="Exemple: 200g de farine, 3 oeufs. Cuire 20 min..."
-                disabled={isPending}
-                rows={6}
-                className="w-full px-4 py-3 text-[14px] border border-[var(--color-border)] rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] resize-y focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30 disabled:opacity-50 transition-colors"
+          )}
+
+          {activeTab === 'text' && (
+            <div className="p-6 sm:p-8">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6 text-center sm:text-left">
+                <div className="w-12 h-12 shrink-0 bg-yellow-50 text-yellow-600 rounded-full flex items-center justify-center text-2xl border border-yellow-100">
+                  📋
+                </div>
+                <div>
+                  <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">
+                    Texte copié
+                  </h4>
+                  <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">
+                    Collez n&apos;importe quel texte désorganisé contenant des ingrédients d&apos;une recette.
+                  </p>
+                </div>
+              </div>
+              <form onSubmit={handleTextSubmit} className="flex flex-col gap-3">
+                <textarea
+                  value={pastedText}
+                  onChange={(e) => setPastedText(e.target.value)}
+                  placeholder="Exemple: 200g de farine, 3 oeufs. Cuire 20 min..."
+                  disabled={isPending}
+                  rows={6}
+                  className="w-full px-4 py-3 text-[14px] border border-[var(--color-border)] rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] resize-y focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30 disabled:opacity-50 transition-colors"
+                />
+                {isPending ? (
+                  <FakeProgressButton source="text" />
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!pastedText.trim()}
+                    className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[15px] font-bold rounded-[var(--radius-md)] shadow-md hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 transition-all active:scale-[0.98]"
+                  >
+                    Extraire les informations
+                  </button>
+                )}
+              </form>
+            </div>
+          )}
+
+          {activeTab === 'bulk' && (
+            <div className="p-6 sm:p-8">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6 text-center sm:text-left">
+                <div className="w-12 h-12 shrink-0 bg-gray-50 text-gray-500 rounded-full flex items-center justify-center text-2xl border border-gray-100">
+                  📦
+                </div>
+                <div>
+                  <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">
+                    Importer en masse
+                  </h4>
+                  <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">
+                    Collez vos liens à la suite ou importez directement vos recettes mises de côté depuis Instagram.
+                  </p>
+                </div>
+              </div>
+
+              <BulkImportView
+                onDone={onBulkDone ?? (() => {})}
+                initialUrls={queuedUrls}
+                autoStartSignal={autoStartSignal}
+                onUrlImported={onRemoveQueuedLink}
               />
-              {isPending ? (
-                <FakeProgressButton source="text" />
-              ) : (
-                <button
-                  type="submit"
-                  disabled={!pastedText.trim()}
-                  className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[15px] font-bold rounded-[var(--radius-md)] shadow-md hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 transition-all active:scale-[0.98]"
-                >
-                  Extraire les informations
-                </button>
-              )}
-            </form>
-          </div>
-        )}
-
-        {activeTab === 'bulk' && (
-          <div className="p-6 sm:p-8">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6 text-center sm:text-left">
-              <div className="w-12 h-12 shrink-0 bg-gray-50 text-gray-500 rounded-full flex items-center justify-center text-2xl border border-gray-100">📦</div>
-              <div>
-                <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">Importer en masse</h4>
-                <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">
-                  Collez vos liens à la suite pour automatiser la lecture.
-                </p>
-              </div>
             </div>
-            
-            <BulkImportView onDone={onBulkDone ?? (() => {})} />
-          </div>
-        )}
-
+          )}
+        </div>
       </div>
     </div>
   );

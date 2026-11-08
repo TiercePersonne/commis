@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { AppLayout } from '@/app/components/app-layout';
 import { AiTagOrganizer } from '@/app/components/ai-tag-organizer';
+import { ShareShortcutSetup } from '@/app/components/share-shortcut-setup';
 import { exportUserData, deleteAccount } from '@/app/actions/profile';
 import { logout } from '@/app/login/actions';
 
@@ -11,7 +12,6 @@ export default function ProfilePage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
 
   const handleExport = async () => {
     setExporting(true);
@@ -80,6 +80,8 @@ export default function ProfilePage() {
           )}
 
           <div className="space-y-6">
+            <ShareShortcutSetup />
+
             <AiTagOrganizer />
 
             <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-light)] rounded-2xl p-6">

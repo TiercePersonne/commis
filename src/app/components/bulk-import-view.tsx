@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CheckCircle, XCircle, Loader2, Copy, Check } from 'lucide-react';
 import { isSupportedVideoUrl } from '@/lib/utils/url-utils';
 import { startImport, startImportFromReel } from '@/app/actions/import';
 import { saveImportedRecipe } from '@/app/actions/recipes';
+import { removeQueuedLinkByUrl, resolveMatchingTagIdsForRecipe } from '@/app/actions/inbox';
 import type { ExtractedRecipe } from '@/lib/schemas/import-job';
 
 type UrlStatus = 'pending' | 'importing' | 'saving' | 'done' | 'error';
@@ -21,6 +22,9 @@ interface UrlEntry {
 
 interface BulkImportViewProps {
   onDone: () => void;
+  initialUrls?: string[];
+  autoStartSignal?: number;
+  onUrlImported?: (url: string) => void;
 }
 
 const withTimeout = <T,>(promise: Promise<T>, ms: number, errorMessage: string): Promise<T> => {
@@ -38,13 +42,31 @@ const withTimeout = <T,>(promise: Promise<T>, ms: number, errorMessage: string):
   });
 };
 
-export function BulkImportView({ onDone }: BulkImportViewProps) {
-  const [rawText, setRawText] = useState('');
+export function BulkImportView({
+  onDone,
+  initialUrls = [],
+  autoStartSignal = 0,
+  onUrlImported,
+}: BulkImportViewProps) {
+  const [rawText, setRawText] = useState(() => initialUrls.join('\n'));
   const [entries, setEntries] = useState<UrlEntry[] | null>(null);
   const [running, setRunning] = useState(false);
   const [copied, setCopied] = useState(false);
+  const lastAutoStartRef = useRef(0);
 
-  const [progressTimer, setProgressTimer] = useState<NodeJS.Timeout | null>(null);
+  // Synchroniser les URLs de la file d'attente si l'utilisateur n'a pas encore lancé l'import
+  useEffect(() => {
+    if (!entries && initialUrls.length > 0) {
+      setRawText((prev) => {
+        const existingLines = prev
+          .split('\n')
+          .map((l) => l.trim())
+          .filter(Boolean);
+        const merged = Array.from(new Set([...initialUrls, ...existingLines]));
+        return merged.join('\n');
+      });
+    }
+  }, [initialUrls, entries]);
 
   useEffect(() => {
     if (!running) return;
@@ -58,10 +80,8 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
             changed = true;
             const currentProgress = entry.progress ?? 0;
             const max = entry.status === 'saving' ? 98 : 95;
-            
-            // Progression décélérée
             const speedFactor = entry.type === 'reel' ? 0.04 : 0.15;
-            
+
             if (currentProgress < max) {
               const increment = (max - currentProgress) * speedFactor;
               return { ...entry, progress: Math.min(currentProgress + increment, max) };
@@ -76,8 +96,8 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
     return () => clearInterval(timer);
   }, [running]);
 
-  const parseUrls = (): UrlEntry[] => {
-    return rawText
+  const parseUrls = (sourceText: string = rawText): UrlEntry[] => {
+    return sourceText
       .split('\n')
       .map((l) => l.trim())
       .filter((l) => l.startsWith('http'))
@@ -98,8 +118,9 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
     });
   };
 
-  const handleStart = async () => {
-    const parsed = parseUrls();
+  const runBulkImport = async (urlsToRun?: string[]) => {
+    const textToParse = urlsToRun ? urlsToRun.join('\n') : rawText;
+    const parsed = parseUrls(textToParse);
     if (!parsed.length) return;
     setEntries(parsed);
     setRunning(true);
@@ -112,21 +133,39 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
         let recipe: ExtractedRecipe;
 
         if (entry.type === 'reel') {
-          // Limite à 90 secondes pour une vidéo
-          const result = await withTimeout(startImportFromReel(entry.url), 90000, "Délai d'attente dépassé (90s max)");
+          const result = await withTimeout(
+            startImportFromReel(entry.url),
+            90000,
+            "Délai d'attente dépassé (90s max)"
+          );
           if (result.error || !result.data) throw new Error(result.error ?? 'Échec import vidéo');
           recipe = result.data.recipe;
         } else {
-          // Limite à 45 secondes pour un lien web
-          const result = await withTimeout(startImport(entry.url), 45000, "Délai d'attente dépassé (45s max)");
+          const result = await withTimeout(
+            startImport(entry.url),
+            45000,
+            "Délai d'attente dépassé (45s max)"
+          );
           if (result.error || !result.data) throw new Error(result.error ?? 'Échec import web');
           recipe = result.data.recipe;
         }
 
         updateEntry(i, { status: 'saving', progress: 90 });
-        // Limite à 15 secondes pour la sauvegarde
-        const saveResult = await withTimeout(saveImportedRecipe(recipe, []), 15000, "Délai de sauvegarde dépassé");
-        if (saveResult.error || !saveResult.data) throw new Error(saveResult.error ?? 'Échec sauvegarde');
+
+        // Associer automatiquement les tags existants suggérés
+        const matchedTagIds = await resolveMatchingTagIdsForRecipe(recipe).catch(() => []);
+
+        const saveResult = await withTimeout(
+          saveImportedRecipe(recipe, matchedTagIds),
+          15000,
+          'Délai de sauvegarde dépassé'
+        );
+        if (saveResult.error || !saveResult.data)
+          throw new Error(saveResult.error ?? 'Échec sauvegarde');
+
+        // Retirer le lien de la file d'attente partagée dès qu'il est sauvegardé
+        await removeQueuedLinkByUrl(entry.url).catch(() => {});
+        onUrlImported?.(entry.url);
 
         updateEntry(i, {
           status: 'done',
@@ -145,11 +184,24 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
     setRunning(false);
   };
 
+  useEffect(() => {
+    if (
+      autoStartSignal > 0 &&
+      autoStartSignal !== lastAutoStartRef.current &&
+      initialUrls.length > 0 &&
+      !running
+    ) {
+      lastAutoStartRef.current = autoStartSignal;
+      runBulkImport(initialUrls);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStartSignal, initialUrls]);
+
   const urlCount = rawText.split('\n').filter((l) => l.trim().startsWith('http')).length;
   const errorEntries = entries?.filter((e) => e.status === 'error') || [];
   const doneCount = entries?.filter((e) => e.status === 'done').length ?? 0;
   const allDone = entries !== null && !running;
-  
+
   const totalProgress = entries?.reduce((acc, entry) => acc + (entry.progress ?? 0), 0) ?? 0;
   const globalProgressPercent = entries?.length ? totalProgress / entries.length : 0;
 
@@ -175,7 +227,7 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
           />
           <div className="flex items-center gap-3">
             <button
-              onClick={handleStart}
+              onClick={() => runBulkImport()}
               disabled={urlCount === 0}
               className="px-5 py-2.5 bg-[var(--color-accent)] text-white rounded-xl font-medium text-[14px] hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
@@ -209,7 +261,7 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
                     {errorEntries.length} lien{errorEntries.length > 1 ? 's' : ''} en erreur
                   </h4>
                   <p className="text-[13px] text-red-600 dark:text-red-500 mt-1">
-                    Certains liens n'ont pas pu être importés. Vous pouvez les copier pour réessayer plus tard.
+                    Certains liens n&apos;ont pas pu être importés. Ils ont été conservés dans votre file d&apos;attente pour réessayer plus tard.
                   </p>
                 </div>
                 <button
@@ -264,7 +316,7 @@ export function BulkImportView({ onDone }: BulkImportViewProps) {
                   {entry.status === 'saving' && (
                     <p className="text-[12px] text-[var(--color-accent)] mt-0.5">Sauvegarde…</p>
                   )}
-                  
+
                   {/* Barre de progression individuelle */}
                   {(entry.status === 'importing' || entry.status === 'saving') && (
                     <div className="w-full h-1 mt-2 bg-[var(--color-border-light)] rounded-full overflow-hidden">
