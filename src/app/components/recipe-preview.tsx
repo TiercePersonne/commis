@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, Sparkles, X } from 'lucide-react';
 import { ConfidenceIndicator } from './confidence-indicator';
 import { TagSelector } from './tag-selector';
 import { saveDraft } from '@/lib/utils/draft';
@@ -142,6 +142,14 @@ export function RecipePreview({
           placeholder="https://..."
           className="w-full px-3.5 py-2 text-[13px] border border-[var(--color-border)] rounded-xl bg-white/5 text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
         />
+        {!recipe.image_url && (
+          <p className="mt-2 flex items-start gap-1.5 text-xs text-[var(--color-text-muted)]">
+            <Sparkles size={13} strokeWidth={1.7} className="shrink-0 mt-0.5 text-[var(--color-accent)]" />
+            <span>
+              Aucune image trouvée : à l&apos;enregistrement, Commis cherchera une photo sur la page d&apos;origine, sinon en générera une du plat.
+            </span>
+          </p>
+        )}
         {recipe.image_url && (
           <img
             src={recipe.image_url}
@@ -277,7 +285,7 @@ export function RecipePreview({
           disabled={isSaving || !recipe.title.trim()}
           className="px-6 py-2.5 bg-[var(--color-accent)] text-white text-[14px] font-semibold rounded-xl hover:bg-[var(--accent-primary-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          {isSaving ? 'Sauvegarde…' : 'Sauvegarder la recette'}
+          {isSaving ? 'Sauvegarde et recherche de la photo…' : 'Sauvegarder la recette'}
         </button>
         <button
           type="button"
