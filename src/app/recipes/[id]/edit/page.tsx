@@ -4,7 +4,7 @@ import { useActionState, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Plus, Sparkles, X } from 'lucide-react';
-import { updateRecipe, getRecipe } from '@/app/actions/recipes';
+import { updateRecipe, getRecipe, repairRecipeImage } from '@/app/actions/recipes';
 import { getRecipeTags } from '@/app/actions/tags';
 import { suggestTagsForRecipe } from '@/app/actions/ai-tags';
 import { TagSelector } from '@/app/components/tag-selector';
@@ -27,6 +27,8 @@ export default function EditRecipePage({
   const [isSuggestingTags, setIsSuggestingTags] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadRecipe = async () => {
@@ -240,6 +242,28 @@ export default function EditRecipePage({
                 className="w-full px-4 py-3 rounded-xl glass-panel text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)]"
                 disabled={isPending}
               />
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isPending || isGeneratingImage}
+                  onClick={async () => {
+                    setIsGeneratingImage(true);
+                    setImageError(null);
+                    const res = await repairRecipeImage(id, 'generate');
+                    if (res.imageUrl) {
+                      setImageUrl(res.imageUrl);
+                    } else {
+                      setImageError(res.error ?? 'Génération impossible');
+                    }
+                    setIsGeneratingImage(false);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold glass-pill text-[var(--color-text-primary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] disabled:opacity-50 transition-colors"
+                >
+                  <Sparkles size={13} strokeWidth={1.7} />
+                  <span>{isGeneratingImage ? 'Génération en cours…' : 'Générer une photo du plat par IA'}</span>
+                </button>
+                {imageError && <span className="text-xs text-red-400">{imageError}</span>}
+              </div>
               {imageUrl && (
                 <img
                   src={imageUrl}

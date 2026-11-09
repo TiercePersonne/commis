@@ -5,6 +5,7 @@ import { Download, Trash2, LogOut, Heart, ExternalLink } from 'lucide-react';
 import { AppLayout } from '@/app/components/app-layout';
 import { AiTagOrganizer } from '@/app/components/ai-tag-organizer';
 import { ShareShortcutSetup } from '@/app/components/share-shortcut-setup';
+import { ImageRepairer } from '@/app/components/image-repairer';
 import { exportUserData, deleteAccount } from '@/app/actions/profile';
 import { logout } from '@/app/login/actions';
 
@@ -85,6 +86,8 @@ export default function ProfilePage() {
             <ShareShortcutSetup />
 
             <AiTagOrganizer />
+
+            <ImageRepairer />
 
             <div className="glass-panel rounded-3xl p-6">
               <h2 className="text-base sm:text-lg font-serif font-medium text-[var(--color-text-primary)] mb-2 flex items-center gap-2">

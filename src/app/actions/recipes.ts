@@ -7,7 +7,7 @@ import { createRecipeSchema, type Recipe } from '@/lib/schemas/recipe';
 import type { Tag } from '@/lib/schemas/tag';
 import type { ExtractedRecipe } from '@/lib/schemas/import-job';
 import { toSentenceCase } from '@/lib/utils/text';
-import { hostnameResolvesToPrivateIp } from '@/lib/utils/ip-utils';
+import { resolveRecipeImage, isStoredImageUrl } from '@/lib/utils/recipe-image';
 
 export type RecipeWithTags = Recipe & { tags: Tag[] };
 
@@ -74,6 +74,20 @@ export async function createRecipe(
   }
 
   revalidatePath('/');
+  // Recette manuelle : photo du plat générée par IA (best effort, ne bloque jamais la création)
+  try {
+    const generated = await resolveRecipeImage(supabase, user.id, {
+      title: data.title,
+      ingredients: validationResult.data.ingredients,
+    });
+    if (generated) {
+      await supabase.from('recipes').update({ image_url: generated.url }).eq('id', data.id);
+      revalidatePath('/');
+    }
+  } catch {
+    // pas d'image : le fallback visuel prend le relais
+  }
+
   redirect(`/recipes/${data.id}`);
 }
 
@@ -307,90 +321,6 @@ export async function deleteRecipe(id: string) {
   redirect('/');
 }
 
-async function uploadImageFromUrl(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  sourceUrl: string
-): Promise<string | null> {
-  const HEADERS_BASE = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-    'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
-  };
-
-  async function tryDownload(withReferer: boolean): Promise<Response | null> {
-    try {
-      const headers: Record<string, string> = { ...HEADERS_BASE };
-      if (withReferer) headers['Referer'] = new URL(sourceUrl).origin + '/';
-      const res = await fetch(sourceUrl, { headers, signal: AbortSignal.timeout(10000) });
-      if (res.ok) return res;
-      return null;
-    } catch {
-      return null;
-    }
-  }
-
-  try {
-    // A2 — Bloquer les IP privées (SSRF) avant d'effectuer la requête
-    let parsedUrl: URL;
-    try {
-      parsedUrl = new URL(sourceUrl);
-    } catch {
-      return null;
-    }
-    if (await hostnameResolvesToPrivateIp(parsedUrl.hostname)) {
-      console.warn(`[uploadImageFromUrl] Blocked SSRF attempt to: ${parsedUrl.hostname}`);
-      return null;
-    }
-
-    // Tentative 1 : avec Referer
-    let response = await tryDownload(true);
-    // Tentative 2 : sans Referer (contourne certaines protections anti-hotlink)
-    if (!response) response = await tryDownload(false);
-    if (!response) return null;
-
-    const contentType = response.headers.get('content-type') ?? 'image/jpeg';
-    if (!contentType.startsWith('image/')) return null;
-
-    const rawBuffer = Buffer.from(await response.arrayBuffer());
-
-    // Optimisation : redimensionnement (max 1200px) + conversion WebP
-    // B2 — Tracker le contentType/extension réels selon le succès de sharp
-    let processedBuffer: Buffer;
-    let effectiveContentType = contentType;
-    let effectiveExtension = contentType.split('/')[1]?.split(';')[0] ?? 'jpg';
-
-    try {
-      const sharp = (await import('sharp')).default;
-      processedBuffer = await sharp(rawBuffer)
-        .resize({ width: 1200, withoutEnlargement: true }) // max 1200px, ne pas agrandir les petites images
-        .webp({ quality: 82 })                             // WebP, qualité 82% (~70-90% plus léger)
-        .toBuffer();
-      effectiveContentType = 'image/webp';
-      effectiveExtension = 'webp';
-    } catch {
-      // Si sharp échoue (format non supporté), on upload l'image originale sans changer le type
-      processedBuffer = rawBuffer;
-    }
-
-    const filename = `${userId}/${Date.now()}.${effectiveExtension}`;
-
-    const { error } = await supabase.storage
-      .from('recipe-images')
-      .upload(filename, processedBuffer, { contentType: effectiveContentType, upsert: false });
-
-    if (error) return null;
-
-    const { data: urlData } = supabase.storage
-      .from('recipe-images')
-      .getPublicUrl(filename);
-
-    return urlData.publicUrl ?? null;
-  } catch {
-    return null;
-  }
-}
-
 
 export async function saveImportedRecipe(
   recipe: ExtractedRecipe,
@@ -401,11 +331,21 @@ export async function saveImportedRecipe(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, error: 'Non authentifié' };
 
-  let finalImageUrl: string | null = recipe.image_url ?? null;
-  if (finalImageUrl) {
-    const uploaded = await uploadImageFromUrl(supabase, user.id, finalImageUrl);
-    if (uploaded) finalImageUrl = uploaded;
+  // Pipeline image : image extraite -> image de la page source (JSON-LD/og) -> photo generee par IA
+  let finalImageUrl: string | null = null;
+  try {
+    const resolved = await resolveRecipeImage(supabase, user.id, {
+      candidates: [recipe.image_url],
+      sourceUrl: recipe.source_url,
+      title: recipe.title,
+      ingredients: recipe.ingredients,
+    });
+    finalImageUrl = resolved?.url ?? null;
+  } catch (err) {
+    console.warn('[saveImportedRecipe] resolution image impossible:', err);
   }
+  // Dernier recours : conserver l'URL d'origine (affichee via le proxy si possible)
+  if (!finalImageUrl) finalImageUrl = recipe.image_url ?? null;
 
   // B1 — source_type déduit de la source_url ou passé explicitement via ExtractedRecipe
   const sourceType = recipe.source_type ?? 'web';
@@ -470,4 +410,77 @@ export async function updateRecipeRating(
   revalidatePath('/');
   revalidatePath(`/recipes/${recipeId}`);
   return {};
+}
+
+/** Liste des recettes dont l'image est absente ou non stockée chez nous (hotlink fragile / étrange). */
+export async function getRecipesNeedingImages(): Promise<{
+  ids?: string[];
+  total?: number;
+  error?: string;
+}> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non authentifié' };
+
+  const { data, error } = await supabase
+    .from('recipes')
+    .select('id, image_url')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
+
+  if (error) return { error: 'Erreur lors de la lecture des recettes' };
+
+  const rows = data ?? [];
+  const ids = rows.filter((r) => !isStoredImageUrl(r.image_url)).map((r) => r.id as string);
+  return { ids, total: rows.length };
+}
+
+/**
+ * Répare l'image d'une recette :
+ * - mode 'repair'  : retélécharge l'image existante, sinon cherche sur la page source, sinon génère par IA ;
+ * - mode 'generate': génère directement une nouvelle photo du plat par IA.
+ */
+export async function repairRecipeImage(
+  recipeId: string,
+  mode: 'repair' | 'generate' = 'repair'
+): Promise<{ imageUrl?: string; origin?: 'source' | 'page' | 'generated'; error?: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non authentifié' };
+
+  const { data: recipe, error } = await supabase
+    .from('recipes')
+    .select('id, title, ingredients, source_url, image_url')
+    .eq('id', recipeId)
+    .eq('user_id', user.id)
+    .single();
+
+  if (error || !recipe) return { error: 'Recette introuvable' };
+
+  const resolved = await resolveRecipeImage(supabase, user.id, {
+    candidates: mode === 'generate' ? [] : [recipe.image_url],
+    sourceUrl: mode === 'generate' ? null : recipe.source_url,
+    title: recipe.title,
+    ingredients: recipe.ingredients ?? [],
+  });
+
+  if (!resolved) {
+    return {
+      error:
+        "Impossible de récupérer ou de générer une image pour cette recette (clé IA indisponible ?).",
+    };
+  }
+
+  if (resolved.url !== recipe.image_url) {
+    const { error: updateError } = await supabase
+      .from('recipes')
+      .update({ image_url: resolved.url })
+      .eq('id', recipeId)
+      .eq('user_id', user.id);
+    if (updateError) return { error: "Impossible d'enregistrer la nouvelle image" };
+  }
+
+  revalidatePath('/');
+  revalidatePath(`/recipes/${recipeId}`);
+  return { imageUrl: resolved.url, origin: resolved.origin };
 }
