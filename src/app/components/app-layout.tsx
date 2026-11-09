@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { BookOpen, Calendar, Plus, ShoppingBag, User, PenLine } from 'lucide-react';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const router = useRouter();
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
@@ -16,7 +17,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       const delta = currentScrollY - lastScrollY;
-      
+
       if (currentScrollY <= 10) {
         setIsVisible(true);
         accumulatedScroll = 0;
@@ -26,9 +27,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         }
         accumulatedScroll += delta;
 
-        if (accumulatedScroll > 30) {
+        if (accumulatedScroll > 35) {
           setIsVisible(false);
-        } else if (accumulatedScroll < -30) {
+        } else if (accumulatedScroll < -25) {
           setIsVisible(true);
         }
       }
@@ -47,146 +48,163 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   };
 
   const navItems = [
-    { 
-      href: '/', 
-      label: 'Collection',
-      icon: (
-        <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 sm:w-5 sm:h-5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
-        </svg>
-      )
+    {
+      href: '/',
+      label: 'Recettes',
+      icon: BookOpen,
     },
-    { 
-      href: '/import', 
-      label: 'Import',
-      icon: (
-        <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 sm:w-5 sm:h-5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-        </svg>
-      )
-    },
-    { 
-      href: '/planner', 
+    {
+      href: '/planner',
       label: 'Planning',
-      icon: (
-        <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 sm:w-5 sm:h-5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-        </svg>
-      )
+      icon: Calendar,
     },
-    { 
-      href: '/profile', 
+    {
+      href: '/import',
+      label: 'Importer',
+      icon: Plus,
+    },
+    {
+      href: '/profile',
       label: 'Profil',
-      icon: (
-        <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 sm:w-5 sm:h-5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-        </svg>
-      )
+      icon: User,
     },
   ];
 
   return (
-    <div className="flex flex-col min-h-[100dvh] bg-[var(--color-bg-primary)]">
-      {/* Floating Header Pill */}
+    <div className="relative flex flex-col min-h-[100dvh] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
+      {/* Top Smoked Glass Bar */}
       <header
-        className="fixed top-4 left-4 right-4 md:left-8 md:right-8 z-50 bg-[var(--color-bg-card)]/75 backdrop-blur-xl rounded-[24px] border border-[var(--color-border-light)] px-4 md:px-6 py-2.5 flex items-center justify-between transition-all duration-300 ease-in-out"
-        style={{ 
-          boxShadow: '0 8px 32px -8px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.05)',
-          transform: (isVisible || isMenuOpen) ? 'translateY(0)' : 'translateY(-100px)'
+        className="fixed top-3 left-4 right-4 md:left-8 md:right-8 z-40 glass-dock rounded-full px-4 md:px-6 py-2.5 flex items-center justify-between transition-all duration-300 ease-out"
+        style={{
+          transform: isVisible ? 'translateY(0)' : 'translateY(-110%)',
         }}
       >
-        <Link href="/" className="flex items-center pl-2 shrink-0">
-          <img 
-            src="/logo.svg" 
-            alt="Commis" 
-            className="h-6 w-auto object-contain drop-shadow-sm"
+        <Link href="/" className="flex items-center pl-1 shrink-0">
+          <img
+            src="/logo.svg"
+            alt="Commis"
+            className="h-5 md:h-6 w-auto object-contain brightness-0 invert opacity-90"
           />
         </Link>
-        
+
         {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-2">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={isActive(item.href) ? 'page' : undefined}
-              className={`no-underline px-4 py-2 rounded-md text-[13px] font-medium transition-colors cursor-pointer select-none flex items-center gap-2 ${
-                isActive(item.href)
-                  ? 'bg-[var(--color-bg-card)] text-[var(--color-accent)]'
-                  : 'bg-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-white/40'
-              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg-secondary)]`}
-              style={
-                isActive(item.href)
-                  ? {
-                      boxShadow: '0 1px 3px rgba(44, 24, 16, 0.06)',
-                      border: '1px solid rgba(44, 24, 16, 0.06)',
-                    }
-                  : {}
-              }
-            >
-              <div className="hidden">{item.icon}</div>
-              {item.label}
-            </Link>
-          ))}
+        <nav className="hidden md:flex items-center gap-1.5">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? 'page' : undefined}
+                className={`no-underline px-4 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-2 ${
+                  active
+                    ? 'bg-[var(--color-text-primary)] text-[var(--color-bg-primary)] shadow-sm'
+                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-white/5'
+                }`}
+              >
+                <Icon size={15} strokeWidth={1.6} />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+
+          <div className="h-4 w-px bg-[var(--color-border)] mx-1" />
+
+          <Link
+            href="/recipes/new"
+            className="px-3.5 py-1.5 rounded-full text-xs font-medium bg-[var(--color-accent)] text-white hover:bg-[var(--accent-primary-hover)] transition-colors flex items-center gap-1.5 shadow-sm"
+          >
+            <PenLine size={13} strokeWidth={1.75} />
+            <span>Créer</span>
+          </Link>
         </nav>
 
-        {/* Mobile Hamburger Toggle */}
-        <button 
-          className="md:hidden p-2 -mr-1 text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] rounded-xl transition-colors"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-          aria-label="Toggle menu"
-        >
-          {isMenuOpen ? (
-            <svg fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          ) : (
-            <svg fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M12 17.25h8.25" />
-            </svg>
-          )}
-        </button>
+        {/* Mobile Quick Action: Manual Creation */}
+        <div className="flex md:hidden items-center gap-2">
+          <Link
+            href="/recipes/new"
+            className="glass-pill px-3 py-1.5 rounded-full text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] flex items-center gap-1.5 transition-colors"
+          >
+            <PenLine size={13} strokeWidth={1.6} />
+            <span>Créer</span>
+          </Link>
+        </div>
       </header>
 
-      {/* Mobile Drawer Overlay */}
-      {isMenuOpen && (
-        <div 
-          className="md:hidden fixed inset-0 z-40 bg-black/10 backdrop-blur-sm"
-          onClick={() => setIsMenuOpen(false)}
-        >
-          <nav 
-            className="absolute top-[80px] right-4 w-[220px] bg-[var(--color-bg-card)]/95 backdrop-blur-md border border-[var(--color-border)] rounded-2xl p-3 flex flex-col gap-2"
-            style={{ boxShadow: '0 10px 40px -10px rgba(44, 24, 16, 0.2)' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {navItems.map((item) => {
-              const active = isActive(item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setIsMenuOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-[14px] font-medium transition-all ${
-                    active 
-                      ? 'bg-[var(--color-bg-primary)] text-[var(--color-accent)]' 
-                      : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text-primary)]'
-                  }`}
-                >
-                  <div className={`${active ? 'scale-110 text-[var(--color-accent)]' : 'text-[var(--color-text-secondary)]'}`}>
-                    {item.icon}
-                  </div>
-                  <span className="text-[14px]">{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-      )}
-
-      
-      <main className="pt-24 md:pt-28 pb-10">
+      {/* Main Content */}
+      <main className="pt-20 md:pt-24 pb-28 md:pb-12 flex-1">
         {children}
       </main>
+
+      {/* Mobile PWA Floating Liquid Glass Dock */}
+      <div
+        className="md:hidden fixed bottom-4 left-4 right-4 z-50 pointer-events-none"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
+        <nav
+          aria-label="Navigation mobile"
+          className="pointer-events-auto glass-dock rounded-full px-3 py-2 flex items-center justify-between max-w-md mx-auto"
+        >
+          <Link
+            href="/"
+            className={`px-3.5 py-2 rounded-full flex items-center gap-2 text-xs font-medium transition-all ${
+              isActive('/')
+                ? 'bg-[var(--color-text-primary)] text-[var(--color-bg-primary)] shadow-sm'
+                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+            }`}
+          >
+            <BookOpen size={17} strokeWidth={1.6} />
+            {isActive('/') && <span>Recettes</span>}
+          </Link>
+
+          <Link
+            href="/planner"
+            className={`px-3.5 py-2 rounded-full flex items-center gap-2 text-xs font-medium transition-all ${
+              pathname === '/planner'
+                ? 'bg-[var(--color-text-primary)] text-[var(--color-bg-primary)] shadow-sm'
+                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+            }`}
+          >
+            <Calendar size={17} strokeWidth={1.6} />
+            {pathname === '/planner' && <span>Planning</span>}
+          </Link>
+
+          <Link
+            href="/import"
+            aria-label="Importer une recette"
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-transform active:scale-95 shadow-md shrink-0 ${
+              isActive('/import')
+                ? 'bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]'
+                : 'bg-[var(--color-accent)] text-white'
+            }`}
+          >
+            <Plus size={19} strokeWidth={2} />
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => router.push('/planner?view=groceries')}
+            aria-label="Liste de courses"
+            className="px-3.5 py-2 rounded-full flex items-center gap-2 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-all"
+          >
+            <ShoppingBag size={17} strokeWidth={1.6} />
+          </button>
+
+          <Link
+            href="/profile"
+            aria-label="Profil"
+            className={`px-3.5 py-2 rounded-full flex items-center gap-2 text-xs font-medium transition-all ${
+              isActive('/profile')
+                ? 'bg-[var(--color-text-primary)] text-[var(--color-bg-primary)] shadow-sm'
+                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+            }`}
+          >
+            <User size={17} strokeWidth={1.6} />
+            {isActive('/profile') && <span>Profil</span>}
+          </Link>
+        </nav>
+      </div>
     </div>
   );
 }

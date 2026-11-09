@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { Sparkles, Plus } from 'lucide-react';
 import { getUserTags, createTag } from '@/app/actions/tags';
 import { normalizeTagName } from '@/lib/utils/tag-prompt';
 import type { Tag } from '@/lib/schemas/tag';
@@ -11,7 +12,11 @@ interface TagSelectorProps {
   suggestedTagNames?: string[];
 }
 
-export function TagSelector({ selectedTags, onTagsChange, suggestedTagNames = [] }: TagSelectorProps) {
+export function TagSelector({
+  selectedTags,
+  onTagsChange,
+  suggestedTagNames = [],
+}: TagSelectorProps) {
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [creatingSuggested, setCreatingSuggested] = useState<string | null>(null);
@@ -29,7 +34,6 @@ export function TagSelector({ selectedTags, onTagsChange, suggestedTagNames = []
     loadTags();
   }, []);
 
-  // Pré-sélectionner automatiquement les tags existants correspondant aux suggestions IA
   useEffect(() => {
     if (!availableTags.length || !suggestedTagNames.length) return;
     const signature = suggestedTagNames.map(normalizeTagName).sort().join('|');
@@ -51,7 +55,6 @@ export function TagSelector({ selectedTags, onTagsChange, suggestedTagNames = []
 
   const suggestedNormalizedSet = new Set(suggestedTagNames.map(normalizeTagName));
 
-  // Tags suggérés par l'IA qui n'existent pas encore dans la base de l'utilisateur
   const existingNormalizedSet = new Set(availableTags.map((t) => normalizeTagName(t.name)));
   const newSuggestedTags = Array.from(
     new Map(
@@ -132,10 +135,10 @@ export function TagSelector({ selectedTags, onTagsChange, suggestedTagNames = []
     <div className="space-y-3">
       {/* Encart des nouveaux tags suggérés par l'IA */}
       {newSuggestedTags.length > 0 && (
-        <div className="p-3.5 rounded-xl bg-[rgba(196,112,75,0.08)] border border-[rgba(196,112,75,0.25)] space-y-2.5">
+        <div className="p-3.5 rounded-2xl bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/30 space-y-2.5">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <p className="text-xs font-semibold text-[var(--color-accent)] flex items-center gap-1.5">
-              <span>✨</span>
+              <Sparkles size={13} strokeWidth={1.7} />
               <span>Nouveaux tags suggérés par l&apos;IA (cliquer pour créer et associer)</span>
             </p>
             {newSuggestedTags.length > 1 && (
@@ -156,7 +159,7 @@ export function TagSelector({ selectedTags, onTagsChange, suggestedTagNames = []
                 type="button"
                 disabled={creatingSuggested !== null}
                 onClick={() => handleCreateSuggestedTag(tagName)}
-                className="px-3 py-1 rounded-full text-xs font-medium border border-dashed border-[var(--color-accent)] bg-[var(--color-bg-card)] text-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-white transition-colors disabled:opacity-50"
+                className="px-3 py-1 rounded-full text-xs font-medium border border-dashed border-[var(--color-accent)] bg-white/5 text-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-white transition-colors disabled:opacity-50"
               >
                 {creatingSuggested === tagName ? 'Création…' : `+ ${tagName}`}
               </button>
@@ -175,13 +178,15 @@ export function TagSelector({ selectedTags, onTagsChange, suggestedTagNames = []
               key={tag.id}
               type="button"
               onClick={() => toggleTag(tag.id)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border inline-flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all border inline-flex items-center gap-1.5 ${
                 isSelected
                   ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]'
-                  : 'bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]'
+                  : 'glass-pill text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]'
               }`}
             >
-              {isAiSuggested && <span title="Suggéré par l'IA">✨</span>}
+              {isAiSuggested && (
+                <Sparkles size={12} strokeWidth={1.8} className="shrink-0" />
+              )}
               <span>{tag.name}</span>
             </button>
           );
@@ -206,7 +211,7 @@ export function TagSelector({ selectedTags, onTagsChange, suggestedTagNames = []
               }
             }}
             placeholder="Nom du tag..."
-            className="flex-1 px-4 py-2.5 border border-[var(--color-border)] rounded-xl bg-[var(--color-bg-card)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-4 focus:ring-[rgba(196,112,75,0.12)]"
+            className="flex-1 px-4 py-2.5 rounded-xl glass-panel text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)]"
             autoFocus
           />
           <button
@@ -223,7 +228,7 @@ export function TagSelector({ selectedTags, onTagsChange, suggestedTagNames = []
               setNewTagName('');
               setError('');
             }}
-            className="px-4 py-2.5 border border-[var(--color-border)] text-[var(--color-text-primary)] rounded-xl hover:bg-[var(--color-bg-secondary)] text-sm font-medium transition-colors"
+            className="px-4 py-2.5 glass-pill text-[var(--color-text-primary)] rounded-xl hover:bg-white/10 text-sm font-medium transition-colors"
           >
             Annuler
           </button>
@@ -232,15 +237,14 @@ export function TagSelector({ selectedTags, onTagsChange, suggestedTagNames = []
         <button
           type="button"
           onClick={() => setIsCreating(true)}
-          className="px-4 py-2.5 border border-[var(--color-border)] text-[var(--color-text-primary)] rounded-xl hover:bg-[var(--color-bg-secondary)] text-sm font-medium transition-colors"
+          className="inline-flex items-center gap-1.5 px-4 py-2 glass-pill text-[var(--color-text-primary)] rounded-xl hover:border-[var(--color-accent)] text-xs sm:text-sm font-medium transition-colors"
         >
-          + Nouveau tag
+          <Plus size={14} strokeWidth={1.8} />
+          <span>Nouveau tag</span>
         </button>
       )}
 
-      {error && (
-        <p className="text-sm text-red-600">{error}</p>
-      )}
+      {error && <p className="text-sm text-red-400">{error}</p>}
     </div>
   );
 }

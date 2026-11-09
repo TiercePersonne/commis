@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Download, Trash2, LogOut, Heart, ExternalLink } from 'lucide-react';
 import { AppLayout } from '@/app/components/app-layout';
 import { AiTagOrganizer } from '@/app/components/ai-tag-organizer';
 import { ShareShortcutSetup } from '@/app/components/share-shortcut-setup';
@@ -54,27 +55,28 @@ export default function ProfilePage() {
 
   return (
     <AppLayout>
-      <div className="px-10 pb-10">
-        <div className="max-w-2xl mx-auto pt-8">
+      <div className="px-4 sm:px-6 md:px-10 pb-12">
+        <div className="max-w-2xl mx-auto pt-6 md:pt-8">
           <div className="flex items-center justify-between mb-2">
-            <h1 className="text-[28px] font-serif font-bold text-[var(--color-text-primary)]">
+            <h1 className="text-2xl md:text-3xl font-serif font-medium text-[var(--color-text-primary)]">
               Mon Profil
             </h1>
             <form action={logout}>
               <button
                 type="submit"
-                className="text-[13px] text-[var(--color-text-muted)] hover:text-red-600 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full glass-pill text-xs font-medium text-[var(--color-text-secondary)] hover:text-red-400 transition-colors"
               >
-                Se déconnecter
+                <LogOut size={14} strokeWidth={1.6} />
+                <span>Se déconnecter</span>
               </button>
             </form>
           </div>
-          <p className="text-[14px] text-[var(--color-text-muted)] mb-8">
-            Gérer ton compte et tes données.
+          <p className="text-xs sm:text-sm text-[var(--color-text-muted)] mb-8">
+            Gérez votre compte, vos automatisations et vos données.
           </p>
 
           {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 mb-6">
+            <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-300 text-sm mb-6">
               {error}
             </div>
           )}
@@ -84,54 +86,78 @@ export default function ProfilePage() {
 
             <AiTagOrganizer />
 
-            <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-light)] rounded-2xl p-6">
-              <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">
-                Exporter mes données
+            <div className="glass-panel rounded-3xl p-6">
+              <h2 className="text-base sm:text-lg font-serif font-medium text-[var(--color-text-primary)] mb-2 flex items-center gap-2">
+                <Download size={18} strokeWidth={1.6} className="text-[var(--color-accent)]" />
+                <span>Exporter mes données</span>
               </h2>
-              <p className="text-sm text-[var(--color-text-secondary)] mb-4">
-                Télécharge toutes tes recettes, tags et plans de repas au format JSON.
+              <p className="text-xs sm:text-sm text-[var(--color-text-secondary)] mb-4">
+                Téléchargez toutes vos recettes, tags et plans de repas au format JSON.
               </p>
               <button
                 onClick={handleExport}
                 disabled={exporting}
-                className="inline-flex items-center justify-center px-5 py-2.5 bg-[var(--color-accent)] text-white rounded-xl hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm transition-colors"
+                className="inline-flex items-center gap-2 justify-center px-5 py-2.5 bg-[var(--color-accent)] text-white rounded-xl hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed font-medium text-xs sm:text-sm transition-colors"
               >
-                {exporting ? 'Export en cours...' : 'Exporter en JSON'}
+                <Download size={15} strokeWidth={1.7} />
+                <span>{exporting ? 'Export en cours...' : 'Exporter en JSON'}</span>
               </button>
             </div>
 
-            <div className="bg-[var(--color-bg-card)] border border-red-200 rounded-2xl p-6">
-              <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">
-                Supprimer mon compte
+            <div className="glass-panel rounded-3xl p-6 flex items-center justify-between gap-4 flex-wrap">
+              <div className="space-y-1">
+                <h2 className="text-base font-serif font-medium text-[var(--color-text-primary)] flex items-center gap-2">
+                  <Heart size={17} strokeWidth={1.6} className="text-[var(--color-accent)]" />
+                  <span>Soutenir le projet Commis</span>
+                </h2>
+                <p className="text-xs text-[var(--color-text-secondary)]">
+                  Contribuez aux frais d&apos;hébergement et d&apos;intelligence artificielle.
+                </p>
+              </div>
+              <a
+                href="https://paypal.me/GJCommis"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl glass-pill text-xs font-medium text-[var(--color-text-primary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors"
+              >
+                <span>Faire un don</span>
+                <ExternalLink size={13} strokeWidth={1.6} />
+              </a>
+            </div>
+
+            <div className="glass-panel border-red-500/25 rounded-3xl p-6">
+              <h2 className="text-base sm:text-lg font-serif font-medium text-[var(--color-text-primary)] mb-2 flex items-center gap-2">
+                <Trash2 size={18} strokeWidth={1.6} className="text-red-400" />
+                <span>Supprimer mon compte</span>
               </h2>
-              <p className="text-sm text-[var(--color-text-secondary)] mb-4">
-                Cette action est irréversible. Toutes tes recettes, tags et plans de repas seront définitivement supprimés.
+              <p className="text-xs sm:text-sm text-[var(--color-text-secondary)] mb-4">
+                Cette action est irréversible. Toutes vos recettes, tags et plans de repas seront définitivement supprimés.
               </p>
 
               {!showDeleteConfirm ? (
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="inline-flex items-center justify-center px-5 py-2.5 border border-[#ba2d2d] text-[#ba2d2d] rounded-xl hover:bg-red-50 font-medium text-sm transition-colors"
+                  className="inline-flex items-center justify-center px-5 py-2.5 border border-red-500/40 bg-red-500/10 text-red-300 rounded-xl hover:bg-red-500/20 font-medium text-xs sm:text-sm transition-colors"
                 >
                   Supprimer mon compte
                 </button>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-sm font-medium text-[#ba2d2d]">
-                    Es-tu sûr ? Cette action est définitive.
+                  <p className="text-xs sm:text-sm font-medium text-red-400">
+                    Êtes-vous sûr ? Cette action est définitive.
                   </p>
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 flex-wrap">
                     <button
                       onClick={handleDelete}
                       disabled={deleting}
-                      className="inline-flex items-center justify-center px-5 py-2.5 bg-[#ba2d2d] text-white rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm transition-opacity"
+                      className="inline-flex items-center justify-center px-5 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-xs sm:text-sm transition-colors"
                     >
                       {deleting ? 'Suppression...' : 'Oui, supprimer définitivement'}
                     </button>
                     <button
                       onClick={() => setShowDeleteConfirm(false)}
                       disabled={deleting}
-                      className="inline-flex items-center justify-center px-5 py-2.5 border border-[var(--color-border)] text-[var(--color-text-primary)] rounded-xl hover:bg-[var(--color-bg-secondary)] font-medium text-sm transition-colors"
+                      className="inline-flex items-center justify-center px-5 py-2.5 glass-pill text-[var(--color-text-primary)] rounded-xl hover:bg-white/10 font-medium text-xs sm:text-sm transition-colors"
                     >
                       Annuler
                     </button>

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { getImageProxySrc } from '@/lib/utils/image';
+import { Utensils } from 'lucide-react';
 
 interface RecipeImageProps {
   src: string;
@@ -18,7 +18,7 @@ export function RecipeImage({ src, alt, className, fallbackClassName }: RecipeIm
   if (failed) {
     return (
       <div className={fallbackClassName}>
-        🍽️
+        <Utensils size={40} strokeWidth={1.3} className="text-[var(--color-text-muted)] opacity-60" />
       </div>
     );
   }

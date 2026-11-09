@@ -1,11 +1,11 @@
 import Link from 'next/link';
+import { Plus } from 'lucide-react';
 import { getUserRecipesWithTags } from '@/app/actions/recipes';
 import { InfiniteScroll } from './components/infinite-scroll';
 import { AppLayout } from './components/app-layout';
 import type { Tag } from '@/lib/schemas/tag';
 
 export default async function Home() {
-  // 1 seule requête Supabase au lieu de 1 + N
   const { recipes, error, hasMore } = await getUserRecipesWithTags(50);
 
   const recipeTagsMap = new Map<string, Tag[]>();
@@ -17,46 +17,47 @@ export default async function Home() {
 
   return (
     <AppLayout>
-      <div className="px-10 pb-10">
-
+      <div className="px-4 sm:px-6 md:px-10 pb-10 max-w-7xl mx-auto">
         {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 mb-6">
+          <div className="p-4 glass-panel border-red-500/30 rounded-2xl text-red-300 mb-6 text-sm">
             {error}
           </div>
         )}
 
         {recipes && recipes.length === 0 && (
-          <div className="text-center py-16">
-            <p className="text-xl text-[var(--color-text-secondary)] mb-6">
-              Vous n&apos;avez pas encore de recettes.
+          <div className="glass-panel rounded-3xl text-center py-16 px-6 max-w-lg mx-auto mt-8">
+            <p className="text-lg font-serif text-[var(--color-text-primary)] mb-2">
+              Votre bibliothèque est vide
             </p>
-            <Link
-              href="/recipes/new"
-              className="inline-flex items-center justify-center px-6 py-3 bg-[var(--color-accent)] text-white rounded-xl hover:bg-[var(--accent-primary-hover)] font-medium transition-colors"
-            >
-              Créer ma première recette
-            </Link>
+            <p className="text-sm text-[var(--color-text-secondary)] mb-6">
+              Importez une recette depuis un lien ou créez votre première fiche manuellement.
+            </p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Link
+                href="/import"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[var(--color-accent)] text-white rounded-full hover:bg-[var(--accent-primary-hover)] text-xs font-medium transition-colors"
+              >
+                <Plus size={15} strokeWidth={1.75} />
+                <span>Importer une recette</span>
+              </Link>
+              <Link
+                href="/recipes/new"
+                className="inline-flex items-center gap-2 px-5 py-2.5 glass-pill rounded-full text-xs font-medium text-[var(--color-text-primary)] hover:border-[var(--color-accent)] transition-colors"
+              >
+                <span>Créer manuellement</span>
+              </Link>
+            </div>
           </div>
         )}
 
         {recipes && recipes.length > 0 && (
-          <InfiniteScroll 
-            initialRecipes={recipes} 
+          <InfiniteScroll
+            initialRecipes={recipes}
             initialRecipeTagsMap={recipeTagsMap}
             initialHasMore={hasMore || false}
           />
-        )}      </div>
-
-      <a 
-        href="https://paypal.me/GJCommis" 
-        target="_blank" 
-        rel="noopener noreferrer"
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full bg-[var(--color-bg-card)]/90 backdrop-blur-md border border-[var(--color-border-light)] text-xs text-[var(--color-text-secondary)] shadow-[0_8px_20px_-6px_rgba(44,24,16,0.15)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] hover:shadow-[0_8px_20px_-6px_rgba(196,112,75,0.25)] hover:scale-105 transition-all duration-200"
-      >
-        <span>🚗</span>
-        <span className="font-medium whitespace-nowrap">Buy me a <span className="line-through opacity-60">coffe</span> Lambo.</span>
-      </a>
+        )}
+      </div>
     </AppLayout>
   );
 }
-

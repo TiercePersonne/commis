@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { ChevronLeft, ChevronRight, Utensils, Check, ArrowLeftRight, X } from 'lucide-react';
 import { addToSlot, getMealPlan } from '@/app/actions/meal-plans';
 import { getMonday, formatDate } from '@/lib/utils/date';
 import { getImageSrc, getImageProxySrc } from '@/lib/utils/image';
@@ -31,7 +32,14 @@ function getWeekDisplay(weekStart: string): string {
   const start = new Date(weekStart);
   const end = new Date(weekStart);
   end.setDate(end.getDate() + 6);
-  return `${start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} – ${end.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+  return `${start.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+  })} – ${end.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })}`;
 }
 
 export function SlotPickerDialog({
@@ -40,11 +48,14 @@ export function SlotPickerDialog({
   onClose,
   onSuccess,
 }: SlotPickerDialogProps) {
-  const [currentWeekStart, setCurrentWeekStart] = useState(() => formatDate(getMonday(new Date())));
+  const [currentWeekStart, setCurrentWeekStart] = useState(() =>
+    formatDate(getMonday(new Date()))
+  );
   const [selectedSlots, setSelectedSlots] = useState<Set<SlotKey>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
   const [mealPlans, setMealPlans] = useState<MealPlanWithRecipe[]>([]);
   const [isLoadingPlans, setIsLoadingPlans] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -54,7 +65,6 @@ export function SlotPickerDialog({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  // Charge le planning pour la semaine affichée
   const loadMealPlans = useCallback(async (weekStart: string) => {
     setIsLoadingPlans(true);
     const { mealPlans: plans } = await getMealPlan(weekStart);
@@ -67,7 +77,10 @@ export function SlotPickerDialog({
     loadMealPlans(currentWeekStart);
   }, [currentWeekStart, loadMealPlans]);
 
-  const getExistingMeal = (day: number, mealType: 'lunch' | 'dinner'): MealPlanWithRecipe | undefined => {
+  const getExistingMeal = (
+    day: number,
+    mealType: 'lunch' | 'dinner'
+  ): MealPlanWithRecipe | undefined => {
     return mealPlans.find((mp) => mp.day === day && mp.meal_type === mealType);
   };
 
@@ -87,6 +100,7 @@ export function SlotPickerDialog({
   const handleConfirm = async () => {
     if (selectedSlots.size === 0) return;
     setIsSaving(true);
+    setErrorMessage(null);
 
     const promises = Array.from(selectedSlots).map((key) => {
       const [day, mealType] = key.split('-') as [string, 'lunch' | 'dinner'];
@@ -99,7 +113,7 @@ export function SlotPickerDialog({
     setIsSaving(false);
 
     if (errors.length > 0) {
-      alert(errors[0].error);
+      setErrorMessage(errors[0].error ?? 'Erreur lors de la planification');
     } else {
       onSuccess();
       onClose();
@@ -109,42 +123,65 @@ export function SlotPickerDialog({
   const isCurrentWeek = currentWeekStart === formatDate(getMonday(new Date()));
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-[var(--color-bg-card)] rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col border border-[var(--color-border-light)] shadow-[0_8px_24px_rgba(44,24,16,0.10)]" onClick={(e) => e.stopPropagation()}>
-
+    <div
+      className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="glass-dock rounded-3xl max-w-3xl w-full max-h-[85vh] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="p-6 border-b border-[var(--color-border)]">
-          <h2 className="text-2xl font-serif text-[var(--color-text-primary)] mb-1">
-            Ajouter au planning
-          </h2>
-          <p className="text-sm text-[var(--color-text-secondary)] mb-4">{recipeTitle}</p>
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-2xl font-serif text-[var(--color-text-primary)] mb-1">
+                Ajouter au planning
+              </h2>
+              <p className="text-xs sm:text-sm text-[var(--color-text-secondary)]">
+                {recipeTitle}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Fermer"
+              className="w-9 h-9 rounded-full glass-pill flex items-center justify-center text-[var(--color-text-secondary)] hover:text-white"
+            >
+              <X size={16} strokeWidth={1.8} />
+            </button>
+          </div>
 
           {/* Navigation semaine */}
-          <div className="flex items-center justify-between bg-[var(--color-bg-primary)] rounded-xl px-4 py-2.5">
+          <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-2xl px-3 py-2">
             <button
               onClick={() => setCurrentWeekStart(addWeeks(currentWeekStart, -1))}
               disabled={isCurrentWeek}
-              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[var(--color-bg-secondary)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-[var(--color-text-primary)] text-xl font-light"
+              className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-[var(--color-text-primary)]"
               aria-label="Semaine précédente"
             >
-              ‹
+              <ChevronLeft size={16} strokeWidth={1.8} />
             </button>
-            <span className="text-sm font-medium text-[var(--color-text-primary)] text-center">
+            <span className="text-xs sm:text-sm font-medium text-[var(--color-text-primary)] text-center">
               {getWeekDisplay(currentWeekStart)}
             </span>
             <button
               onClick={() => setCurrentWeekStart(addWeeks(currentWeekStart, 1))}
-              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[var(--color-bg-secondary)] transition-colors text-[var(--color-text-primary)] text-xl font-light"
+              className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/10 transition-colors text-[var(--color-text-primary)]"
               aria-label="Semaine suivante"
             >
-              ›
+              <ChevronRight size={16} strokeWidth={1.8} />
             </button>
           </div>
 
           {selectedSlots.size > 0 && (
-            <p className="text-xs text-[var(--color-accent)] mt-2 font-medium">
-              {selectedSlots.size} créneau{selectedSlots.size > 1 ? 'x' : ''} sélectionné{selectedSlots.size > 1 ? 's' : ''}
+            <p className="text-xs text-[var(--color-accent)] mt-2.5 font-medium">
+              {selectedSlots.size} créneau{selectedSlots.size > 1 ? 'x' : ''} sélectionné
+              {selectedSlots.size > 1 ? 's' : ''}
             </p>
+          )}
+          {errorMessage && (
+            <p className="text-xs text-red-400 mt-2">{errorMessage}</p>
           )}
         </div>
 
@@ -157,8 +194,10 @@ export function SlotPickerDialog({
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {DAYS.map((dayLabel, dayIndex) => (
-                <div key={dayIndex} className="border border-[var(--color-border)] rounded-xl p-4">
-                  <h3 className="font-medium text-[var(--color-text-primary)] mb-3 text-sm">{dayLabel}</h3>
+                <div key={dayIndex} className="glass-panel rounded-2xl p-4">
+                  <h3 className="font-serif font-medium text-[var(--color-text-primary)] mb-3 text-sm">
+                    {dayLabel}
+                  </h3>
                   <div className="space-y-2">
                     {MEAL_TYPES.map(({ key, label }) => {
                       const slotKey: SlotKey = `${dayIndex}-${key}`;
@@ -172,16 +211,15 @@ export function SlotPickerDialog({
                           key={key}
                           onClick={() => toggleSlot(dayIndex, key)}
                           disabled={isSaving}
-                          className={`w-full text-left rounded-xl border-2 transition-all disabled:opacity-50 overflow-hidden ${
+                          className={`w-full text-left rounded-xl border transition-all disabled:opacity-50 overflow-hidden ${
                             isSelected
-                              ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
+                              ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/15'
                               : isTaken
-                              ? 'border-[var(--color-border)] bg-[var(--color-bg-primary)] hover:border-[var(--color-accent)]/50'
-                              : 'border-[var(--color-border)] bg-[var(--color-bg-card)] hover:border-[var(--color-accent)]/50'
+                              ? 'border-white/10 bg-white/[0.03] hover:border-[var(--color-accent)]/50'
+                              : 'border-white/10 bg-white/[0.05] hover:border-[var(--color-accent)]/50'
                           }`}
                         >
                           <div className="flex items-center gap-0">
-                            {/* Miniature de la recette existante */}
                             {isTaken && (
                               <div className="w-14 h-14 flex-shrink-0 relative">
                                 {existingMeal!.recipe.image_url ? (
@@ -193,44 +231,74 @@ export function SlotPickerDialog({
                                       const img = e.currentTarget as HTMLImageElement;
                                       if (!img.dataset.proxied) {
                                         img.dataset.proxied = '1';
-                                        img.src = getImageProxySrc(existingMeal!.recipe.image_url!);
+                                        img.src = getImageProxySrc(
+                                          existingMeal!.recipe.image_url!
+                                        );
                                       } else {
                                         img.style.display = 'none';
-                                        (img.nextElementSibling as HTMLElement).style.display = 'flex';
+                                        (img.nextElementSibling as HTMLElement).style.display =
+                                          'flex';
                                       }
                                     }}
                                   />
                                 ) : null}
                                 <div
-                                  className="w-full h-full bg-gradient-to-br from-[var(--color-bg-primary)] to-[var(--color-border)] items-center justify-center text-lg"
-                                  style={{ display: existingMeal!.recipe.image_url ? 'none' : 'flex' }}
+                                  className="w-full h-full bg-gradient-to-br from-[#231b17] to-[#16110e] items-center justify-center text-[var(--color-text-muted)]"
+                                  style={{
+                                    display: existingMeal!.recipe.image_url ? 'none' : 'flex',
+                                  }}
                                 >
-                                  🍽️
+                                  <Utensils size={16} strokeWidth={1.4} />
                                 </div>
                               </div>
                             )}
 
-                            <div className={`flex items-center gap-2 px-3 py-2.5 flex-1 min-w-0 ${isTaken ? 'py-2' : ''}`}>
-                              {/* Case à cocher */}
-                              <span className={`w-4 h-4 rounded border-2 flex items-center justify-center text-[10px] flex-shrink-0 ${
-                                isSelected
-                                  ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
-                                  : 'border-[var(--color-border)]'
-                              }`}>
-                                {isSelected ? '✓' : ''}
+                            <div
+                              className={`flex items-center gap-2.5 px-3 py-2.5 flex-1 min-w-0 ${
+                                isTaken ? 'py-2' : ''
+                              }`}
+                            >
+                              <span
+                                className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 ${
+                                  isSelected
+                                    ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
+                                    : 'border-white/25'
+                                }`}
+                              >
+                                {isSelected && <Check size={10} strokeWidth={2.5} />}
                               </span>
 
                               <div className="flex-1 min-w-0">
-                                <span className={`text-sm font-medium block ${isSelected ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-primary)]'}`}>
+                                <span
+                                  className={`text-sm font-medium block ${
+                                    isSelected
+                                      ? 'text-[var(--color-accent)]'
+                                      : 'text-[var(--color-text-primary)]'
+                                  }`}
+                                >
                                   {label}
                                 </span>
                                 {isTaken && (
-                                  <span className={`text-xs truncate block mt-0.5 ${
-                                    isThisRecipe
-                                      ? 'text-[var(--color-accent)]'
-                                      : 'text-[var(--color-text-muted)]'
-                                  }`}>
-                                    {isThisRecipe ? '✓ Déjà planifiée' : `↔ ${existingMeal!.recipe.title}`}
+                                  <span
+                                    className={`text-xs truncate flex items-center gap-1 mt-0.5 ${
+                                      isThisRecipe
+                                        ? 'text-[var(--color-accent)]'
+                                        : 'text-[var(--color-text-muted)]'
+                                    }`}
+                                  >
+                                    {isThisRecipe ? (
+                                      <>
+                                        <Check size={11} strokeWidth={2} />
+                                        <span>Déjà planifiée</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <ArrowLeftRight size={11} strokeWidth={1.6} />
+                                        <span className="truncate">
+                                          {existingMeal!.recipe.title}
+                                        </span>
+                                      </>
+                                    )}
                                   </span>
                                 )}
                               </div>
@@ -251,14 +319,14 @@ export function SlotPickerDialog({
           <button
             onClick={onClose}
             disabled={isSaving}
-            className="flex-1 px-4 py-3 bg-[var(--color-bg-card)] border border-[var(--color-border)] text-[var(--color-text-primary)] rounded-xl hover:bg-[var(--color-bg-secondary)] transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-3 glass-pill text-[var(--color-text-primary)] rounded-2xl hover:bg-white/10 transition-colors disabled:opacity-50 text-sm font-medium"
           >
             Annuler
           </button>
           <button
             onClick={handleConfirm}
             disabled={selectedSlots.size === 0 || isSaving}
-            className="flex-1 px-4 py-3 bg-[var(--color-accent)] text-white rounded-xl hover:bg-[var(--accent-primary-hover)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed font-medium"
+            className="flex-1 px-4 py-3 bg-[var(--color-accent)] text-white rounded-2xl hover:bg-[var(--accent-primary-hover)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold"
           >
             {isSaving
               ? 'Enregistrement...'

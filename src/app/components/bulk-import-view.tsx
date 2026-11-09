@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { CheckCircle, XCircle, Loader2, Copy, Check } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Copy, Check, Film, Globe } from 'lucide-react';
 import { isSupportedVideoUrl } from '@/lib/utils/url-utils';
 import { startImport, startImportFromReel } from '@/app/actions/import';
 import { saveImportedRecipe } from '@/app/actions/recipes';
@@ -54,7 +54,6 @@ export function BulkImportView({
   const [copied, setCopied] = useState(false);
   const lastAutoStartRef = useRef(0);
 
-  // Synchroniser les URLs de la file d'attente si l'utilisateur n'a pas encore lancé l'import
   useEffect(() => {
     if (!entries && initialUrls.length > 0) {
       setRawText((prev) => {
@@ -152,7 +151,6 @@ export function BulkImportView({
 
         updateEntry(i, { status: 'saving', progress: 90 });
 
-        // Associer automatiquement les tags existants suggérés
         const matchedTagIds = await resolveMatchingTagIdsForRecipe(recipe).catch(() => []);
 
         const saveResult = await withTimeout(
@@ -163,7 +161,6 @@ export function BulkImportView({
         if (saveResult.error || !saveResult.data)
           throw new Error(saveResult.error ?? 'Échec sauvegarde');
 
-        // Retirer le lien de la file d'attente partagée dès qu'il est sauvegardé
         await removeQueuedLinkByUrl(entry.url).catch(() => {});
         onUrlImported?.(entry.url);
 
@@ -216,20 +213,20 @@ export function BulkImportView({
     <div className="w-full">
       {!entries ? (
         <div className="space-y-4">
-          <p className="text-[14px] text-[var(--color-text-secondary)]">
+          <p className="text-[13.5px] text-[var(--color-text-secondary)]">
             Collez plusieurs URLs (une par ligne) — liens de sites web, Reels Instagram, vidéos TikTok ou YouTube acceptés.
           </p>
           <textarea
             value={rawText}
             onChange={(e) => setRawText(e.target.value)}
             placeholder={`https://exemple.com/recette-1\nhttps://www.instagram.com/reel/ABC123/\nhttps://exemple.com/recette-2`}
-            className="w-full px-3 py-2.5 text-[13px] font-mono border border-[var(--color-border)] rounded-xl bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)] outline-none resize-none h-32 md:h-48"
+            className="w-full px-4 py-3 text-[13px] font-mono border border-[var(--color-border)] rounded-2xl bg-white/5 text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)] outline-none resize-none h-32 md:h-48"
           />
           <div className="flex items-center gap-3">
             <button
               onClick={() => runBulkImport()}
               disabled={urlCount === 0}
-              className="px-5 py-2.5 bg-[var(--color-accent)] text-white rounded-xl font-medium text-[14px] hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-5 py-2.5 bg-[var(--color-accent)] text-white rounded-xl font-semibold text-[14px] hover:bg-[var(--accent-primary-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Importer {urlCount > 0 ? `${urlCount} recette${urlCount > 1 ? 's' : ''}` : ''}
             </button>
@@ -254,29 +251,29 @@ export function BulkImportView({
           </div>
 
           {allDone && errorEntries.length > 0 && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-xl space-y-3 dark:bg-red-950/20 dark:border-red-900/30">
+            <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-2xl space-y-3">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h4 className="text-[14px] font-medium text-red-800 dark:text-red-400">
+                  <h4 className="text-[14px] font-medium text-red-300">
                     {errorEntries.length} lien{errorEntries.length > 1 ? 's' : ''} en erreur
                   </h4>
-                  <p className="text-[13px] text-red-600 dark:text-red-500 mt-1">
+                  <p className="text-[13px] text-red-400/90 mt-1">
                     Certains liens n&apos;ont pas pu être importés. Ils ont été conservés dans votre file d&apos;attente pour réessayer plus tard.
                   </p>
                 </div>
                 <button
                   onClick={handleCopyErrors}
-                  className="shrink-0 flex items-center gap-2 px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-[13px] font-medium hover:bg-red-200 transition-colors dark:bg-red-900/40 dark:text-red-300 dark:hover:bg-red-900/60"
+                  className="shrink-0 flex items-center gap-2 px-3 py-1.5 bg-red-500/20 text-red-200 rounded-xl text-[13px] font-medium hover:bg-red-500/30 transition-colors"
                 >
                   {copied ? (
                     <>
                       <Check size={14} />
-                      Copié
+                      <span>Copié</span>
                     </>
                   ) : (
                     <>
                       <Copy size={14} />
-                      Copier
+                      <span>Copier</span>
                     </>
                   )}
                 </button>
@@ -285,7 +282,7 @@ export function BulkImportView({
           )}
 
           {/* Barre de progression Globale */}
-          <div className="w-full h-2 bg-[var(--color-border-light)] rounded-full overflow-hidden">
+          <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
             <div
               className="h-full bg-[var(--color-accent)] transition-all duration-300"
               style={{ width: `${globalProgressPercent}%` }}
@@ -296,15 +293,17 @@ export function BulkImportView({
             {entries.map((entry, i) => (
               <div
                 key={i}
-                className="flex items-start gap-3 p-3 bg-[var(--color-bg-card)] border border-[var(--color-border-light)] rounded-xl"
+                className="flex items-start gap-3 p-3 bg-white/5 border border-white/10 rounded-2xl"
               >
                 <div className="mt-0.5 shrink-0">
-                  {entry.status === 'pending' && <div className="w-5 h-5 rounded-full border-2 border-[var(--color-border)]" />}
+                  {entry.status === 'pending' && (
+                    <div className="w-5 h-5 rounded-full border-2 border-[var(--color-border)]" />
+                  )}
                   {(entry.status === 'importing' || entry.status === 'saving') && (
                     <Loader2 size={20} className="animate-spin text-[var(--color-accent)]" />
                   )}
-                  {entry.status === 'done' && <CheckCircle size={20} className="text-green-600" />}
-                  {entry.status === 'error' && <XCircle size={20} className="text-red-500" />}
+                  {entry.status === 'done' && <CheckCircle size={20} className="text-emerald-400" />}
+                  {entry.status === 'error' && <XCircle size={20} className="text-red-400" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] text-[var(--color-text-muted)] truncate">{entry.url}</p>
@@ -317,9 +316,8 @@ export function BulkImportView({
                     <p className="text-[12px] text-[var(--color-accent)] mt-0.5">Sauvegarde…</p>
                   )}
 
-                  {/* Barre de progression individuelle */}
                   {(entry.status === 'importing' || entry.status === 'saving') && (
-                    <div className="w-full h-1 mt-2 bg-[var(--color-border-light)] rounded-full overflow-hidden">
+                    <div className="w-full h-1 mt-2 bg-white/10 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-[var(--color-accent)] transition-all duration-300"
                         style={{ width: `${entry.progress ?? 0}%` }}
@@ -330,17 +328,21 @@ export function BulkImportView({
                   {entry.status === 'done' && entry.recipeTitle && (
                     <a
                       href={`/recipes/${entry.recipeId}`}
-                      className="text-[12px] text-green-700 font-medium mt-0.5 hover:underline block"
+                      className="text-[12px] text-emerald-400 font-medium mt-0.5 hover:underline block"
                     >
                       {entry.recipeTitle}
                     </a>
                   )}
                   {entry.status === 'error' && (
-                    <p className="text-[12px] text-red-600 mt-0.5">{entry.error}</p>
+                    <p className="text-[12px] text-red-400 mt-0.5">{entry.error}</p>
                   )}
                 </div>
-                <span className="text-[11px] text-[var(--color-text-muted)] shrink-0 mt-0.5">
-                  {entry.type === 'reel' ? '🎬' : '🌐'}
+                <span className="text-[var(--color-text-muted)] shrink-0 mt-0.5">
+                  {entry.type === 'reel' ? (
+                    <Film size={14} strokeWidth={1.6} />
+                  ) : (
+                    <Globe size={14} strokeWidth={1.6} />
+                  )}
                 </span>
               </div>
             ))}

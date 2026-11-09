@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Lora, Poppins } from "next/font/google";
 import "./globals.css";
 
@@ -13,13 +13,20 @@ const poppins = Poppins({
   weight: ["400", "500", "600", "700"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#130f0d",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export const metadata: Metadata = {
   title: "Commis",
   description: "Commis — gestion de recettes personnelles",
   appleWebApp: {
     capable: true,
     title: "Commis",
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
   },
   icons: {
     icon: [
@@ -39,7 +46,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr">
+    <html lang="fr" className="dark">
       <body
         className={`${lora.variable} ${poppins.variable} antialiased`}
       >

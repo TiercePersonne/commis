@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import { deleteRecipe } from '@/app/actions/recipes';
 
 export function DeleteButton({ recipeId }: { recipeId: string }) {
@@ -18,14 +19,14 @@ export function DeleteButton({ recipeId }: { recipeId: string }) {
         <button
           onClick={handleDelete}
           disabled={isDeleting}
-          className="inline-flex items-center justify-center px-4 py-2.5 bg-[#ba2d2d] text-white rounded-xl hover:opacity-90 disabled:opacity-50 font-medium transition-opacity"
+          className="inline-flex items-center justify-center px-4 py-2.5 bg-red-500/90 text-white rounded-xl hover:bg-red-500 disabled:opacity-50 font-medium text-xs sm:text-sm transition-colors"
         >
           {isDeleting ? 'Suppression...' : 'Confirmer'}
         </button>
         <button
           onClick={() => setShowConfirm(false)}
           disabled={isDeleting}
-          className="inline-flex items-center justify-center px-4 py-2.5 border border-[var(--color-border)] text-[var(--color-text-primary)] rounded-xl hover:bg-[var(--color-bg-secondary)] font-medium transition-colors"
+          className="inline-flex items-center justify-center px-4 py-2.5 glass-pill text-[var(--color-text-primary)] rounded-xl hover:bg-white/10 font-medium text-xs sm:text-sm transition-colors"
         >
           Annuler
         </button>
@@ -36,9 +37,10 @@ export function DeleteButton({ recipeId }: { recipeId: string }) {
   return (
     <button
       onClick={() => setShowConfirm(true)}
-      className="inline-flex items-center justify-center px-4 py-2.5 border border-[#ba2d2d] text-[#ba2d2d] rounded-xl hover:bg-red-50 font-medium transition-colors"
+      className="inline-flex items-center gap-1.5 justify-center px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 font-medium text-xs sm:text-sm transition-colors"
     >
-      Supprimer
+      <Trash2 size={14} strokeWidth={1.6} />
+      <span>Supprimer</span>
     </button>
   );
 }

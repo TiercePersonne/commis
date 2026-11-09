@@ -1,6 +1,18 @@
 'use client';
 
 import { useState, useTransition, useEffect } from 'react';
+import {
+  Globe,
+  Film,
+  Camera,
+  FileText,
+  Layers,
+  Inbox,
+  Zap,
+  Plus,
+  X,
+  ClipboardPaste,
+} from 'lucide-react';
 import { BulkImportView } from './bulk-import-view';
 import type { QueuedLinkItem } from '@/app/actions/inbox';
 
@@ -59,14 +71,14 @@ function FakeProgressButton({ source }: { source: 'web' | 'reel' | 'image' | 'te
   return (
     <div className="w-full mt-4">
       <div className="flex justify-between items-center mb-2 px-1">
-        <span className="text-[14px] font-medium text-[var(--color-accent)] animate-pulse">
+        <span className="text-[13px] font-medium text-[var(--color-accent)] animate-pulse">
           {currentText}
         </span>
-        <span className="text-[13px] font-bold text-[var(--color-text-muted)]">
+        <span className="text-[12px] font-bold text-[var(--color-text-muted)]">
           {Math.round(progress)}%
         </span>
       </div>
-      <div className="h-4 w-full bg-[var(--color-border-light)] rounded-full overflow-hidden shadow-inner">
+      <div className="h-2.5 w-full bg-white/10 rounded-full overflow-hidden">
         <div
           className="h-full bg-[var(--color-accent)] transition-all duration-300"
           style={{ width: `${progress}%` }}
@@ -145,6 +157,15 @@ function isValidUrl(url: string): boolean {
   return url.startsWith('http://') || url.startsWith('https://');
 }
 
+function isShortVideoUrl(url: string): boolean {
+  return (
+    url.includes('instagram.com') ||
+    url.includes('tiktok.com') ||
+    url.includes('youtube.com/shorts') ||
+    url.includes('youtu.be')
+  );
+}
+
 export function ImportSourceSelector({
   onImportStart,
   onTextImport,
@@ -174,15 +195,18 @@ export function ImportSourceSelector({
   const handleUrlSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setUrlError(null);
+    const trimmed = url.trim();
 
-    if (!isValidUrl(url.trim())) {
+    if (!isValidUrl(trimmed)) {
       setUrlError('URL invalide. Veuillez coller une adresse web commençant par http:// ou https://');
       return;
     }
 
     startTransition(async () => {
-      if (onImportStart) {
-        await onImportStart('', url.trim());
+      if (isShortVideoUrl(trimmed) && onReelImport) {
+        await onReelImport(trimmed);
+      } else if (onImportStart) {
+        await onImportStart('', trimmed);
       }
     });
   };
@@ -224,11 +248,27 @@ export function ImportSourceSelector({
     });
   };
 
+  const handlePasteFromClipboard = async (target: 'web' | 'reel') => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) return;
+      if (target === 'web') {
+        setUrl(text.trim());
+        setUrlError(null);
+      } else {
+        setReelUrl(text.trim());
+        setReelUrlError(null);
+      }
+    } catch {
+      // Clipboard API permission refused or unavailable
+    }
+  };
+
   const tabButtonClass = (isActive: boolean) =>
-    `flex-1 min-w-[100px] sm:min-w-[120px] py-4 px-3 text-[13px] font-semibold rounded-[var(--radius-lg)] flex flex-col items-center justify-center gap-2 transition-all relative ${
+    `flex-1 min-w-[96px] sm:min-w-[112px] py-3.5 px-3 text-[12.5px] font-semibold rounded-2xl flex flex-col items-center justify-center gap-2 transition-all relative border ${
       isActive
-        ? 'bg-[var(--color-bg-card)] text-[var(--color-accent)] border-2 border-[var(--color-accent)] shadow-[0_4px_12px_rgba(0,0,0,0.05)] scale-[1.02]'
-        : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-2 border-transparent hover:bg-[var(--color-bg-card)] hover:shadow-sm'
+        ? 'bg-[var(--color-accent)]/15 text-[var(--color-accent)] border-[var(--color-accent)] shadow-[0_8px_24px_rgba(217,130,91,0.18)]'
+        : 'glass-panel text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-white/25'
     }`;
 
   const activeTab = selectedSource;
@@ -248,16 +288,27 @@ export function ImportSourceSelector({
 
   return (
     <div className="mt-4 md:mt-8 max-w-2xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-serif font-medium text-[var(--color-text-primary)]">
+            Importer une recette
+          </h1>
+          <p className="text-xs sm:text-sm text-[var(--color-text-secondary)] mt-1">
+            Extraction intelligente depuis un site, une vidéo, une photo ou vos notes.
+          </p>
+        </div>
+      </div>
+
       {/* Encart Boîte de réception des liens partagés (Instagram / TikTok / Web) */}
       {queuedLinks.length > 0 && (
-        <div className="p-5 bg-[var(--color-bg-card)] border-2 border-[var(--color-accent)] rounded-[var(--radius-xl)] shadow-sm space-y-3">
+        <div className="p-5 glass-panel border-[var(--color-accent)]/50 rounded-3xl space-y-3">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <h3 className="text-[15px] font-bold text-[var(--color-text-primary)] flex items-center gap-2">
-                <span>📥</span>
+              <h3 className="text-[14px] font-semibold text-[var(--color-text-primary)] flex items-center gap-2">
+                <Inbox size={16} strokeWidth={1.6} className="text-[var(--color-accent)]" />
                 <span>
                   {queuedLinks.length} recette{queuedLinks.length > 1 ? 's' : ''} mise
-                  {queuedLinks.length > 1 ? 's' : ''} de côté depuis tes partages
+                  {queuedLinks.length > 1 ? 's' : ''} de côté depuis vos partages
                 </span>
               </h3>
               <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
@@ -268,15 +319,16 @@ export function ImportSourceSelector({
               <button
                 type="button"
                 onClick={handleImportAllQueued}
-                className="px-4 py-2 bg-[var(--color-accent)] text-white rounded-xl text-xs font-bold hover:bg-[var(--accent-primary-hover)] transition-colors shadow-sm"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[var(--color-accent)] text-white rounded-xl text-xs font-semibold hover:bg-[var(--accent-primary-hover)] transition-colors shadow-sm"
               >
-                ⚡ Tout importer ({queuedLinks.length})
+                <Zap size={13} strokeWidth={1.8} />
+                <span>Tout importer ({queuedLinks.length})</span>
               </button>
               {onClearQueuedLinks && (
                 <button
                   type="button"
                   onClick={onClearQueuedLinks}
-                  className="px-3 py-2 border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-red-600 rounded-xl text-xs font-medium transition-colors"
+                  className="px-3 py-2 glass-pill text-[var(--color-text-muted)] hover:text-red-400 rounded-xl text-xs font-medium transition-colors"
                 >
                   Vider
                 </button>
@@ -288,10 +340,14 @@ export function ImportSourceSelector({
             {queuedLinks.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[var(--color-bg-primary)] border border-[var(--color-border-light)] text-xs"
+                className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs"
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <span>{item.source_type === 'reel' ? '🎬' : '🌐'}</span>
+                  {item.source_type === 'reel' ? (
+                    <Film size={14} strokeWidth={1.6} className="text-[var(--color-accent)] shrink-0" />
+                  ) : (
+                    <Globe size={14} strokeWidth={1.6} className="text-[var(--color-text-secondary)] shrink-0" />
+                  )}
                   <span className="truncate text-[var(--color-text-secondary)] font-mono">
                     {item.source_url}
                   </span>
@@ -301,9 +357,9 @@ export function ImportSourceSelector({
                     type="button"
                     onClick={() => onRemoveQueuedLink(item.source_url)}
                     aria-label="Retirer ce lien"
-                    className="text-[var(--color-text-muted)] hover:text-red-600 px-1.5 font-bold"
+                    className="text-[var(--color-text-muted)] hover:text-red-400 p-1"
                   >
-                    ×
+                    <X size={14} strokeWidth={1.8} />
                   </button>
                 )}
               </div>
@@ -312,40 +368,40 @@ export function ImportSourceSelector({
         </div>
       )}
 
-      <div className="flex flex-col-reverse gap-6">
-        {/* Barre d'onglets */}
-        <div className="flex flex-wrap gap-2 md:gap-3">
+      <div className="flex flex-col gap-5">
+        {/* Barre d'onglets (placée en haut pour une hiérarchie naturelle) */}
+        <div className="flex flex-wrap gap-2 md:gap-2.5">
           <button
             type="button"
             onClick={() => handleTabClick('web')}
             className={tabButtonClass(activeTab === 'web')}
           >
-            <span className="text-xl md:text-2xl mb-0.5">🌐</span>
-            Site Web
+            <Globe size={20} strokeWidth={1.5} />
+            <span>Site Web</span>
           </button>
           <button
             type="button"
             onClick={() => handleTabClick('reel')}
             className={tabButtonClass(activeTab === 'reel')}
           >
-            <span className="text-xl md:text-2xl mb-0.5">🎬</span>
-            Vidéo Courte
+            <Film size={20} strokeWidth={1.5} />
+            <span>Vidéo Courte</span>
           </button>
           <button
             type="button"
             onClick={() => handleTabClick('image')}
             className={tabButtonClass(activeTab === 'image')}
           >
-            <span className="text-xl md:text-2xl mb-0.5">📸</span>
-            Photo
+            <Camera size={20} strokeWidth={1.5} />
+            <span>Photo</span>
           </button>
           <button
             type="button"
             onClick={() => handleTabClick('text')}
             className={tabButtonClass(activeTab === 'text')}
           >
-            <span className="text-xl md:text-2xl mb-0.5">📋</span>
-            Texte
+            <FileText size={20} strokeWidth={1.5} />
+            <span>Texte</span>
           </button>
           <button
             type="button"
@@ -357,46 +413,56 @@ export function ImportSourceSelector({
                 {queuedLinks.length}
               </span>
             )}
-            <span className="text-xl md:text-2xl mb-0.5">📦</span>
-            En masse
+            <Layers size={20} strokeWidth={1.5} />
+            <span>En masse</span>
           </button>
         </div>
 
         {/* Contenu de l'onglet actif */}
-        <div className="bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-[var(--radius-xl)] shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="glass-panel rounded-3xl overflow-hidden animate-in fade-in duration-200">
           {activeTab === 'web' && (
             <div className="p-6 sm:p-8">
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6 text-center sm:text-left">
-                <div className="w-12 h-12 shrink-0 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center text-2xl border border-blue-100">
-                  🌐
+                <div className="w-12 h-12 shrink-0 bg-[var(--color-accent)]/15 text-[var(--color-accent)] rounded-2xl flex items-center justify-center border border-[var(--color-accent)]/30">
+                  <Globe size={22} strokeWidth={1.5} />
                 </div>
                 <div>
-                  <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">
+                  <h4 className="text-[17px] font-serif font-medium text-[var(--color-text-primary)]">
                     Importer depuis un site web
                   </h4>
                   <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">
-                    Collez le lien d&apos;un blog culinaire ou d&apos;un site de recettes. L&apos;IA lira la page pour vous.
+                    Collez le lien d&apos;un blog culinaire ou d&apos;une vidéo. L&apos;IA détecte et extrait la recette automatiquement.
                   </p>
                 </div>
               </div>
               <form onSubmit={handleUrlSubmit} className="flex flex-col gap-3">
-                <input
-                  type="url"
-                  value={url}
-                  onChange={(e) => {
-                    setUrl(e.target.value);
-                    if (urlError) setUrlError(null);
-                  }}
-                  placeholder="https://www.marmiton.org/recettes/..."
-                  disabled={isPending}
-                  className={`w-full px-4 py-3.5 text-[15px] border rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30 disabled:opacity-50 ${
-                    urlError
-                      ? 'border-red-400 bg-red-50'
-                      : 'border-[var(--color-border)] hover:border-[var(--color-border-hover)]'
-                  }`}
-                />
+                <div className="relative flex items-center">
+                  <input
+                    type="url"
+                    value={url}
+                    onChange={(e) => {
+                      setUrl(e.target.value);
+                      if (urlError) setUrlError(null);
+                    }}
+                    placeholder="https://www.marmiton.org/recettes/..."
+                    disabled={isPending}
+                    className={`w-full pl-4 pr-24 py-3.5 text-[14.5px] border rounded-2xl bg-white/5 text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] transition-colors focus:outline-none focus:border-[var(--color-accent)] disabled:opacity-50 ${
+                      urlError
+                        ? 'border-red-400/70 bg-red-500/10'
+                        : 'border-[var(--color-border)] hover:border-[var(--color-border-hover)]'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handlePasteFromClipboard('web')}
+                    className="absolute right-2.5 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl glass-pill text-xs font-medium text-[var(--color-text-secondary)] hover:text-white transition-colors"
+                  >
+                    <ClipboardPaste size={13} strokeWidth={1.6} />
+                    <span>Coller</span>
+                  </button>
+                </div>
                 {urlError && (
-                  <p className="text-[13px] text-red-600 pl-1 font-medium">{urlError}</p>
+                  <p className="text-[13px] text-red-400 pl-1 font-medium">{urlError}</p>
                 )}
                 {isPending ? (
                   <FakeProgressButton source="web" />
@@ -404,7 +470,7 @@ export function ImportSourceSelector({
                   <button
                     type="submit"
                     disabled={!url.trim()}
-                    className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[15px] font-bold rounded-[var(--radius-md)] shadow-md hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 transition-all active:scale-[0.98]"
+                    className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[14.5px] font-semibold rounded-2xl shadow-[0_8px_20px_rgba(217,130,91,0.28)] hover:bg-[var(--accent-primary-hover)] disabled:opacity-40 transition-all active:scale-[0.99]"
                   >
                     Importer la recette
                   </button>
@@ -416,36 +482,46 @@ export function ImportSourceSelector({
           {activeTab === 'reel' && (
             <div className="p-6 sm:p-8">
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6 text-center sm:text-left">
-                <div className="w-12 h-12 shrink-0 bg-purple-50 text-purple-500 rounded-full flex items-center justify-center text-2xl border border-purple-100">
-                  🎬
+                <div className="w-12 h-12 shrink-0 bg-[var(--color-accent)]/15 text-[var(--color-accent)] rounded-2xl flex items-center justify-center border border-[var(--color-accent)]/30">
+                  <Film size={22} strokeWidth={1.5} />
                 </div>
                 <div>
-                  <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">
+                  <h4 className="text-[17px] font-serif font-medium text-[var(--color-text-primary)]">
                     Instagram, TikTok ou YouTube
                   </h4>
                   <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">
-                    Collez le lien de la vidéo. L&apos;IA écoutera l&apos;audio et analysera l&apos;image de couverture.
+                    Collez le lien de la vidéo. L&apos;IA écoutera l&apos;audio et analysera la description.
                   </p>
                 </div>
               </div>
               <form onSubmit={handleReelSubmit} className="flex flex-col gap-3">
-                <input
-                  type="url"
-                  value={reelUrl}
-                  onChange={(e) => {
-                    setReelUrl(e.target.value);
-                    if (reelUrlError) setReelUrlError(null);
-                  }}
-                  placeholder="Lien Instagram, TikTok, YouTube..."
-                  disabled={isPending}
-                  className={`w-full px-4 py-3.5 text-[15px] border rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30 disabled:opacity-50 ${
-                    reelUrlError
-                      ? 'border-red-400 bg-red-50'
-                      : 'border-[var(--color-border)] hover:border-[var(--color-border-hover)]'
-                  }`}
-                />
+                <div className="relative flex items-center">
+                  <input
+                    type="url"
+                    value={reelUrl}
+                    onChange={(e) => {
+                      setReelUrl(e.target.value);
+                      if (reelUrlError) setReelUrlError(null);
+                    }}
+                    placeholder="Lien Instagram, TikTok, YouTube..."
+                    disabled={isPending}
+                    className={`w-full pl-4 pr-24 py-3.5 text-[14.5px] border rounded-2xl bg-white/5 text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] transition-colors focus:outline-none focus:border-[var(--color-accent)] disabled:opacity-50 ${
+                      reelUrlError
+                        ? 'border-red-400/70 bg-red-500/10'
+                        : 'border-[var(--color-border)] hover:border-[var(--color-border-hover)]'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handlePasteFromClipboard('reel')}
+                    className="absolute right-2.5 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl glass-pill text-xs font-medium text-[var(--color-text-secondary)] hover:text-white transition-colors"
+                  >
+                    <ClipboardPaste size={13} strokeWidth={1.6} />
+                    <span>Coller</span>
+                  </button>
+                </div>
                 {reelUrlError && (
-                  <p className="text-[13px] text-red-600 pl-1 font-medium">{reelUrlError}</p>
+                  <p className="text-[13px] text-red-400 pl-1 font-medium">{reelUrlError}</p>
                 )}
                 {isPending ? (
                   <FakeProgressButton source="reel" />
@@ -453,7 +529,7 @@ export function ImportSourceSelector({
                   <button
                     type="submit"
                     disabled={!reelUrl.trim()}
-                    className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[15px] font-bold rounded-[var(--radius-md)] shadow-md hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 transition-all active:scale-[0.98]"
+                    className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[14.5px] font-semibold rounded-2xl shadow-[0_8px_20px_rgba(217,130,91,0.28)] hover:bg-[var(--accent-primary-hover)] disabled:opacity-40 transition-all active:scale-[0.99]"
                   >
                     Transcrire cette vidéo
                   </button>
@@ -464,31 +540,31 @@ export function ImportSourceSelector({
 
           {activeTab === 'image' && (
             <div className="p-6 sm:p-8 flex flex-col items-center text-center">
-              <div className="w-14 h-14 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center text-3xl mb-4 border border-orange-100 shadow-sm">
-                📸
+              <div className="w-14 h-14 bg-[var(--color-accent)]/15 text-[var(--color-accent)] rounded-2xl flex items-center justify-center mb-4 border border-[var(--color-accent)]/30">
+                <Camera size={26} strokeWidth={1.5} />
               </div>
-              <h4 className="text-[18px] font-bold text-[var(--color-text-primary)] mb-2">
+              <h4 className="text-[17px] font-serif font-medium text-[var(--color-text-primary)] mb-2">
                 Scanner une image
               </h4>
-              <p className="text-[14px] text-[var(--color-text-secondary)] mb-8 max-w-sm">
+              <p className="text-[13.5px] text-[var(--color-text-secondary)] mb-6 max-w-sm">
                 Prenez en photo une page de livre ou soumettez une capture d&apos;écran de votre téléphone.
               </p>
 
               <label
-                className={`w-full max-w-xs relative overflow-hidden flex flex-col items-center justify-center border-2 border-dashed rounded-[var(--radius-xl)] px-6 py-10 transition-colors cursor-pointer group ${
+                className={`w-full max-w-xs relative overflow-hidden flex flex-col items-center justify-center border border-dashed rounded-2xl px-6 py-10 transition-colors cursor-pointer group ${
                   isPending
                     ? 'opacity-50 pointer-events-none'
-                    : 'border-[var(--color-border)] hover:border-[var(--color-accent)] hover:bg-[var(--color-bg-secondary)]'
+                    : 'border-white/20 bg-white/[0.02] hover:border-[var(--color-accent)] hover:bg-white/[0.05]'
                 }`}
               >
                 {isPending ? (
                   <FakeProgressButton source="image" />
                 ) : (
                   <>
-                    <div className="text-3xl mb-3 text-[var(--color-text-muted)] group-hover:text-[var(--color-accent)] transition-colors">
-                      ➕
+                    <div className="w-10 h-10 rounded-full glass-pill flex items-center justify-center mb-3 text-[var(--color-text-secondary)] group-hover:text-[var(--color-accent)] transition-colors">
+                      <Plus size={20} strokeWidth={1.6} />
                     </div>
-                    <span className="text-[14px] font-bold text-[var(--color-text-primary)]">
+                    <span className="text-[14px] font-semibold text-[var(--color-text-primary)]">
                       Choisir une image
                     </span>
                     <span className="text-[12px] text-[var(--color-text-muted)] mt-1">
@@ -529,15 +605,15 @@ export function ImportSourceSelector({
           {activeTab === 'text' && (
             <div className="p-6 sm:p-8">
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6 text-center sm:text-left">
-                <div className="w-12 h-12 shrink-0 bg-yellow-50 text-yellow-600 rounded-full flex items-center justify-center text-2xl border border-yellow-100">
-                  📋
+                <div className="w-12 h-12 shrink-0 bg-[var(--color-accent)]/15 text-[var(--color-accent)] rounded-2xl flex items-center justify-center border border-[var(--color-accent)]/30">
+                  <FileText size={22} strokeWidth={1.5} />
                 </div>
                 <div>
-                  <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">
+                  <h4 className="text-[17px] font-serif font-medium text-[var(--color-text-primary)]">
                     Texte copié
                   </h4>
                   <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">
-                    Collez n&apos;importe quel texte désorganisé contenant des ingrédients d&apos;une recette.
+                    Collez n&apos;importe quel texte désorganisé contenant les ingrédients et étapes d&apos;une recette.
                   </p>
                 </div>
               </div>
@@ -548,7 +624,7 @@ export function ImportSourceSelector({
                   placeholder="Exemple: 200g de farine, 3 oeufs. Cuire 20 min..."
                   disabled={isPending}
                   rows={6}
-                  className="w-full px-4 py-3 text-[14px] border border-[var(--color-border)] rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] resize-y focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30 disabled:opacity-50 transition-colors"
+                  className="w-full px-4 py-3 text-[14px] border border-[var(--color-border)] rounded-2xl bg-white/5 text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] resize-y focus:outline-none focus:border-[var(--color-accent)] disabled:opacity-50 transition-colors"
                 />
                 {isPending ? (
                   <FakeProgressButton source="text" />
@@ -556,7 +632,7 @@ export function ImportSourceSelector({
                   <button
                     type="submit"
                     disabled={!pastedText.trim()}
-                    className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[15px] font-bold rounded-[var(--radius-md)] shadow-md hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 transition-all active:scale-[0.98]"
+                    className="w-full py-3.5 mt-2 bg-[var(--color-accent)] text-white text-[14.5px] font-semibold rounded-2xl shadow-[0_8px_20px_rgba(217,130,91,0.28)] hover:bg-[var(--accent-primary-hover)] disabled:opacity-40 transition-all active:scale-[0.99]"
                   >
                     Extraire les informations
                   </button>
@@ -568,11 +644,11 @@ export function ImportSourceSelector({
           {activeTab === 'bulk' && (
             <div className="p-6 sm:p-8">
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6 text-center sm:text-left">
-                <div className="w-12 h-12 shrink-0 bg-gray-50 text-gray-500 rounded-full flex items-center justify-center text-2xl border border-gray-100">
-                  📦
+                <div className="w-12 h-12 shrink-0 bg-[var(--color-accent)]/15 text-[var(--color-accent)] rounded-2xl flex items-center justify-center border border-[var(--color-accent)]/30">
+                  <Layers size={22} strokeWidth={1.5} />
                 </div>
                 <div>
-                  <h4 className="text-[18px] font-bold text-[var(--color-text-primary)]">
+                  <h4 className="text-[17px] font-serif font-medium text-[var(--color-text-primary)]">
                     Importer en masse
                   </h4>
                   <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">
