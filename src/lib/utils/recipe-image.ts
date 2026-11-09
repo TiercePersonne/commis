@@ -152,7 +152,8 @@ export async function generateDishImage(
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
 
-  const model = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
+  // Modele le moins cher (~0,034 USD/image en 1K) ; l'ancien gemini-2.5-flash-image est deprecie
+  const models = [process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-lite-image', 'gemini-2.5-flash-image'];
   const keyIngredients = ingredients
     .slice(0, 8)
     .map((i) => i.text)
@@ -165,35 +166,36 @@ export async function generateDishImage(
     `lumière naturelle douce, arrière-plan de cuisine simple et flou, tons chauds, haute définition. ` +
     `Aucun texte, aucun logo, aucune main, aucune personne.`;
 
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseModalities: ['IMAGE'] },
-        }),
-        signal: AbortSignal.timeout(60000),
+  for (const model of models) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseModalities: ['IMAGE'] },
+          }),
+          signal: AbortSignal.timeout(60000),
+        }
+      );
+      if (!res.ok) {
+        console.warn(`[recipe-image] modele ${model} indisponible (${res.status})`);
+        continue; // modele suivant (ex. repli sur l'ancien modele)
       }
-    );
-    if (!res.ok) {
-      console.warn(`[recipe-image] génération IA indisponible (${res.status})`);
-      return null;
+      const json = await res.json();
+      const parts: Array<{ inlineData?: { data?: string }; inline_data?: { data?: string } }> =
+        json?.candidates?.[0]?.content?.parts ?? [];
+      for (const part of parts) {
+        const data = part.inlineData?.data ?? part.inline_data?.data;
+        if (data) return Buffer.from(data, 'base64');
+      }
+    } catch (err) {
+      console.warn(`[recipe-image] echec generation IA (${model}):`, err);
     }
-    const json = await res.json();
-    const parts: Array<{ inlineData?: { data?: string }; inline_data?: { data?: string } }> =
-      json?.candidates?.[0]?.content?.parts ?? [];
-    for (const part of parts) {
-      const data = part.inlineData?.data ?? part.inline_data?.data;
-      if (data) return Buffer.from(data, 'base64');
-    }
-    return null;
-  } catch (err) {
-    console.warn('[recipe-image] échec génération IA:', err);
-    return null;
   }
+  return null;
 }
 
 /** Optimise (1200px, WebP) et stocke dans le bucket. Retourne l'URL publique. */
