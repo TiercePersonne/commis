@@ -7,7 +7,14 @@ import { createRecipeSchema, type Recipe } from '@/lib/schemas/recipe';
 import type { Tag } from '@/lib/schemas/tag';
 import type { ExtractedRecipe } from '@/lib/schemas/import-job';
 import { toSentenceCase } from '@/lib/utils/text';
-import { resolveRecipeImage, isStoredImageUrl } from '@/lib/utils/recipe-image';
+import {
+  resolveRecipeImage,
+  isStoredImageUrl,
+  checkDishPhoto,
+  fetchStoredImage,
+  downloadValidImage,
+  storeImageBuffer,
+} from '@/lib/utils/recipe-image';
 
 export type RecipeWithTags = Recipe & { tags: Tag[] };
 
@@ -412,10 +419,16 @@ export async function updateRecipeRating(
   return {};
 }
 
-/** Liste des recettes dont l'image est absente ou non stockée chez nous (hotlink fragile / étrange). */
-export async function getRecipesNeedingImages(): Promise<{
-  ids?: string[];
-  total?: number;
+export type AuditItem = {
+  id: string;
+  title: string;
+  imageUrl: string | null;
+  hasImage: boolean;
+};
+
+/** Liste de toutes les recettes pour l'audit d'images. */
+export async function getAllRecipesForImageAudit(): Promise<{
+  recipes?: AuditItem[];
   error?: string;
 }> {
   const supabase = await createClient();
@@ -424,29 +437,45 @@ export async function getRecipesNeedingImages(): Promise<{
 
   const { data, error } = await supabase
     .from('recipes')
-    .select('id, image_url')
+    .select('id, title, image_url')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 
   if (error) return { error: 'Erreur lors de la lecture des recettes' };
 
-  const rows = data ?? [];
-  const ids = rows.filter((r) => !isStoredImageUrl(r.image_url)).map((r) => r.id as string);
-  return { ids, total: rows.length };
+  const recipes: AuditItem[] = (data ?? []).map((r) => ({
+    id: r.id as string,
+    title: r.title as string,
+    imageUrl: (r.image_url as string | null) ?? null,
+    hasImage: !!r.image_url,
+  }));
+
+  return { recipes };
 }
 
+export type AuditRepairResult = {
+  status: 'valid' | 'replaced' | 'generated' | 'failed';
+  title: string;
+  imageUrl?: string;
+  origin?: 'source' | 'page' | 'generated';
+  message?: string;
+  error?: string;
+};
+
 /**
- * Répare l'image d'une recette :
- * - mode 'repair'  : retélécharge l'image existante, sinon cherche sur la page source, sinon génère par IA ;
- * - mode 'generate': génère directement une nouvelle photo du plat par IA.
+ * Audite et répare l'image d'une recette :
+ * 1. Si elle a une image : on l'analyse avec Gemini Vision.
+ *    - Si c'est un plat authentique -> confirmée (et enregistrée en CDN si externe).
+ *    - Si c'est une personne, un visage, du texte, des motifs ou un logo -> REJETÉE !
+ * 2. Si rejetée ou absente : cherche une autre image sur la page source ou génère une photo IA du plat.
  */
-export async function repairRecipeImage(
+export async function auditAndRepairRecipeImage(
   recipeId: string,
-  mode: 'repair' | 'generate' = 'repair'
-): Promise<{ imageUrl?: string; origin?: 'source' | 'page' | 'generated'; error?: string }> {
+  forceRegenerate = false
+): Promise<AuditRepairResult> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Non authentifié' };
+  if (!user) return { status: 'failed', title: '', error: 'Non authentifié' };
 
   const { data: recipe, error } = await supabase
     .from('recipes')
@@ -455,32 +484,97 @@ export async function repairRecipeImage(
     .eq('user_id', user.id)
     .single();
 
-  if (error || !recipe) return { error: 'Recette introuvable' };
+  if (error || !recipe) return { status: 'failed', title: '', error: 'Recette introuvable' };
 
+  const hadPreviousImage = !!recipe.image_url;
+
+  // 1. Audit de l'image existante si non forcée
+  if (recipe.image_url && !forceRegenerate) {
+    const isStored = isStoredImageUrl(recipe.image_url);
+    const buffer = isStored
+      ? await fetchStoredImage(recipe.image_url)
+      : (await downloadValidImage(recipe.image_url))?.buffer ?? null;
+
+    if (buffer) {
+      const isDish = await checkDishPhoto(buffer, recipe.title);
+
+      // Si l'IA confirme que c'est un vrai plat / nourriture
+      if (isDish === true) {
+        // Si elle n'était pas encore dans notre bucket Supabase, on la sécurise chez nous
+        if (!isStored) {
+          const storedUrl = await storeImageBuffer(supabase, user.id, buffer);
+          if (storedUrl) {
+            await supabase.from('recipes').update({ image_url: storedUrl }).eq('id', recipeId);
+            revalidatePath('/');
+            revalidatePath(`/recipes/${recipeId}`);
+            return {
+              status: 'valid',
+              title: recipe.title,
+              imageUrl: storedUrl,
+              message: 'Photo de plat authentique confirmée (stockée en CDN)',
+            };
+          }
+        }
+        return {
+          status: 'valid',
+          title: recipe.title,
+          imageUrl: recipe.image_url,
+          message: 'Photo de plat authentique confirmée',
+        };
+      }
+
+      // isDish === false : C'est une personne, du texte, des motifs, une capture, etc. On doit la remplacer !
+      console.log(
+        `[auditAndRepairRecipeImage] Image actuelle rejetée (visage / texte / motif) pour "${recipe.title}". Remplacement en cours...`
+      );
+    }
+  }
+
+  // 2. Recherche d'une photo alternative ou génération IA
   const resolved = await resolveRecipeImage(supabase, user.id, {
-    candidates: mode === 'generate' ? [] : [recipe.image_url],
-    sourceUrl: mode === 'generate' ? null : recipe.source_url,
+    candidates: forceRegenerate || hadPreviousImage ? [] : [recipe.image_url],
+    sourceUrl: forceRegenerate ? null : recipe.source_url,
     title: recipe.title,
     ingredients: recipe.ingredients ?? [],
+    allowGeneration: true,
   });
 
   if (!resolved) {
     return {
-      error:
-        "Impossible de récupérer ou de générer une image pour cette recette (clé IA indisponible ?).",
+      status: 'failed',
+      title: recipe.title,
+      error: 'Impossible de générer ou récupérer une photo du plat (vérifiez votre clé Gemini).',
     };
   }
 
-  if (resolved.url !== recipe.image_url) {
-    const { error: updateError } = await supabase
-      .from('recipes')
-      .update({ image_url: resolved.url })
-      .eq('id', recipeId)
-      .eq('user_id', user.id);
-    if (updateError) return { error: "Impossible d'enregistrer la nouvelle image" };
-  }
+  // Mise à jour de la recette avec la nouvelle vraie photo du plat
+  await supabase
+    .from('recipes')
+    .update({ image_url: resolved.url })
+    .eq('id', recipeId)
+    .eq('user_id', user.id);
 
   revalidatePath('/');
   revalidatePath(`/recipes/${recipeId}`);
-  return { imageUrl: resolved.url, origin: resolved.origin };
+
+  return {
+    status: hadPreviousImage ? 'replaced' : 'generated',
+    title: recipe.title,
+    imageUrl: resolved.url,
+    origin: resolved.origin,
+    message:
+      resolved.origin === 'generated'
+        ? 'Nouvelle photo du plat générée par IA'
+        : 'Photo de plat récupérée depuis la page d’origine',
+  };
+}
+
+/** Compatibilité avec l'ancien nom de fonction pour la page d'édition. */
+export async function repairRecipeImage(
+  recipeId: string,
+  mode: 'repair' | 'generate' = 'repair'
+): Promise<{ imageUrl?: string; origin?: 'source' | 'page' | 'generated'; error?: string }> {
+  const res = await auditAndRepairRecipeImage(recipeId, mode === 'generate');
+  if (res.status === 'failed') return { error: res.error };
+  return { imageUrl: res.imageUrl, origin: res.origin };
 }
