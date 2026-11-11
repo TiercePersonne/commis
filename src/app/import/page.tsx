@@ -73,6 +73,22 @@ export default function ImportPage() {
     };
 
     initInbox();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        getQueuedLinks().then((res) => {
+          if (res.items) setQueuedLinks(res.items);
+        });
+      }
+    };
+
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
   }, []);
 
   const handleRemoveQueuedLink = async (url: string) => {
