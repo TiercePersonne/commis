@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, ExternalLink, Pencil, Utensils } from 'lucide-react';
+import { ExternalLink, Pencil, Utensils } from 'lucide-react';
 import { RecipeImage } from '@/app/components/recipe-image';
 import { getRecipe } from '@/app/actions/recipes';
 import { getRecipeTags } from '@/app/actions/tags';
 import { DeleteButton } from './delete-button';
 import { AddToPlannerButton } from './add-to-planner-button';
+import { BackToRecipesButton } from './back-button';
 import { RecipeTabs } from '@/app/components/recipe-tabs';
 import { AppLayout } from '@/app/components/app-layout';
 import { RecipeRating } from '@/app/components/recipe-rating';
@@ -25,13 +26,7 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
     <AppLayout>
       <div className="px-4 sm:px-6 md:px-10 pb-12">
         <div className="max-w-3xl mx-auto pt-4 md:pt-8">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full glass-pill text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-white/25 transition-all mb-4 md:mb-6"
-          >
-            <ArrowLeft size={14} strokeWidth={1.6} />
-            <span>Retour aux recettes</span>
-          </Link>
+          <BackToRecipesButton />
 
           <div className="relative rounded-3xl overflow-hidden border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.45)] mb-6">
             {recipe.image_url ? (

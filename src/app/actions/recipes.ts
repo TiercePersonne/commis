@@ -121,7 +121,7 @@ export async function getRecipe(id: string): Promise<{ recipe?: Recipe; error?: 
 }
 
 export async function getUserRecipes(
-  limit: number = 50,
+  limit?: number,
   cursor?: { created_at: string; id: string }
 ): Promise<{ recipes?: Recipe[]; error?: string; hasMore?: boolean }> {
   const supabase = await createClient();
@@ -136,11 +136,14 @@ export async function getUserRecipes(
     .select('*')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
-    .order('id', { ascending: false })
-    .limit(limit + 1);
+    .order('id', { ascending: false });
 
   if (cursor) {
     query = query.or(`created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`);
+  }
+
+  if (typeof limit === 'number') {
+    query = query.limit(limit + 1);
   }
 
   const { data, error } = await query;
@@ -149,14 +152,14 @@ export async function getUserRecipes(
     return { error: 'Erreur lors de la récupération des recettes' };
   }
 
-  const hasMore = data.length > limit;
-  const recipes = hasMore ? data.slice(0, limit) : data;
+  const hasMore = typeof limit === 'number' ? data.length > limit : false;
+  const recipes = (hasMore && typeof limit === 'number') ? data.slice(0, limit) : data;
 
   return { recipes: recipes as Recipe[], hasMore };
 }
 
 export async function getUserRecipesWithTags(
-  limit: number = 50,
+  limit?: number,
   cursor?: { created_at: string; id: string }
 ): Promise<{ recipes?: RecipeWithTags[]; error?: string; hasMore?: boolean }> {
   const supabase = await createClient();
@@ -171,11 +174,14 @@ export async function getUserRecipesWithTags(
     .select('*, recipe_tags(tag_id, tags(*))')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
-    .order('id', { ascending: false })
-    .limit(limit + 1);
+    .order('id', { ascending: false });
 
   if (cursor) {
     query = query.or(`created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`);
+  }
+
+  if (typeof limit === 'number') {
+    query = query.limit(limit + 1);
   }
 
   const { data, error } = await query;
@@ -184,8 +190,8 @@ export async function getUserRecipesWithTags(
     return { error: 'Erreur lors de la récupération des recettes' };
   }
 
-  const hasMore = data.length > limit;
-  const rawRecipes = hasMore ? data.slice(0, limit) : data;
+  const hasMore = typeof limit === 'number' ? data.length > limit : false;
+  const rawRecipes = (hasMore && typeof limit === 'number') ? data.slice(0, limit) : data;
 
   const recipes: RecipeWithTags[] = rawRecipes.map((row) => {
     const { recipe_tags, ...recipe } = row as typeof row & { recipe_tags: Array<{ tags: unknown }> };

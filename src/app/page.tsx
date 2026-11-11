@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { getUserRecipesWithTags } from '@/app/actions/recipes';
-import { InfiniteScroll } from './components/infinite-scroll';
+import { RecipeFilters } from './components/recipe-filters';
 import { AppLayout } from './components/app-layout';
 import type { Tag } from '@/lib/schemas/tag';
 
 export default async function Home() {
-  const { recipes, error, hasMore } = await getUserRecipesWithTags(50);
+  const { recipes, error } = await getUserRecipesWithTags();
 
   const recipeTagsMap = new Map<string, Tag[]>();
   if (recipes) {
@@ -51,10 +51,9 @@ export default async function Home() {
         )}
 
         {recipes && recipes.length > 0 && (
-          <InfiniteScroll
-            initialRecipes={recipes}
-            initialRecipeTagsMap={recipeTagsMap}
-            initialHasMore={hasMore || false}
+          <RecipeFilters
+            recipes={recipes}
+            recipeTagsMap={recipeTagsMap}
           />
         )}
       </div>

@@ -5,6 +5,7 @@ import { Search, X } from 'lucide-react';
 import { getUserRecipes } from '@/app/actions/recipes';
 import { addToSlot } from '@/app/actions/meal-plans';
 import type { Recipe } from '@/lib/schemas/recipe';
+import { normalizeSearch } from '@/lib/utils/text';
 
 type RecipePickerDialogProps = {
   weekStart: string;
@@ -42,7 +43,7 @@ export function RecipePickerDialog({
       setLoading(true);
       setError(null);
 
-      const result = await getUserRecipes(100);
+      const result = await getUserRecipes();
 
       if (result.error) {
         setError(result.error);
@@ -70,9 +71,15 @@ export function RecipePickerDialog({
     }
   };
 
-  const filteredRecipes = recipes.filter((recipe) =>
-    recipe.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredRecipes = recipes.filter((recipe) => {
+    if (!searchQuery.trim()) return true;
+    const terms = normalizeSearch(searchQuery).split(/\s+/).filter(Boolean);
+    const title = normalizeSearch(recipe.title);
+    return terms.every((term) =>
+      title.includes(term) ||
+      (recipe.ingredients || []).some((ing) => normalizeSearch(ing.text).includes(term))
+    );
+  });
 
   const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   const mealLabel = mealType === 'lunch' ? 'Déjeuner' : 'Dîner';

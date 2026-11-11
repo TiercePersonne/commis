@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Search,
   Shuffle,
@@ -14,7 +15,8 @@ import {
 
 import type { Recipe } from '@/lib/schemas/recipe';
 import type { Tag } from '@/lib/schemas/tag';
-import { toSentenceCase } from '@/lib/utils/text';
+import { toSentenceCase, normalizeSearch } from '@/lib/utils/text';
+import { useHeaderVisibility } from '@/app/components/app-layout';
 
 interface RecipeFiltersProps {
   recipes: Recipe[];
@@ -37,6 +39,7 @@ function RecipeCardImage({ src, alt }: { src: string | null | undefined; alt: st
       <img
         src={src}
         alt={alt}
+        loading="lazy"
         className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
         referrerPolicy="no-referrer"
         onError={() => setFailed(true)}
@@ -47,18 +50,97 @@ function RecipeCardImage({ src, alt }: { src: string | null | undefined; alt: st
 }
 
 export function RecipeFilters({ recipes, recipeTagsMap }: RecipeFiltersProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
+  const router = useRouter();
+  const isHeaderVisible = useHeaderVisibility();
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+
+  // Restaurer l'état précédent si on revient d'une recette consultée
+  const [searchQuery, setSearchQuery] = useState(() => {
+    if (typeof window !== 'undefined' && sessionStorage.getItem('commis_last_recipe_id')) {
+      try {
+        const saved = sessionStorage.getItem('commis_filters_state');
+        if (saved) return JSON.parse(saved).searchQuery || '';
+      } catch {}
+    }
+    return '';
+  });
+
+  const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>(() => {
+    if (typeof window !== 'undefined' && sessionStorage.getItem('commis_last_recipe_id')) {
+      try {
+        const saved = sessionStorage.getItem('commis_filters_state');
+        if (saved) return JSON.parse(saved).selectedTagFilters || [];
+      } catch {}
+    }
+    return [];
+  });
+
+  const [sortBy, setSortBy] = useState<'recent' | 'rating'>(() => {
+    if (typeof window !== 'undefined' && sessionStorage.getItem('commis_last_recipe_id')) {
+      try {
+        const saved = sessionStorage.getItem('commis_filters_state');
+        if (saved) return JSON.parse(saved).sortBy || 'recent';
+      } catch {}
+    }
+    return 'recent';
+  });
+
   const [showAllTags, setShowAllTags] = useState(false);
-  const [sortBy, setSortBy] = useState<'recent' | 'rating'>('recent');
   const [isStuck, setIsStuck] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsStuck(window.scrollY > 16);
+      setIsStuck(window.scrollY > 20);
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Restauration du scroll vers la recette précédemment consultée
+  useEffect(() => {
+    const targetId = sessionStorage.getItem('commis_last_recipe_id');
+    const savedScrollY = sessionStorage.getItem('commis_scroll_y');
+    if (!targetId && !savedScrollY) return;
+
+    let attempts = 0;
+    const maxAttempts = 15;
+
+    const attemptScroll = () => {
+      attempts++;
+      if (targetId) {
+        const el = document.getElementById(`recipe-${targetId}`);
+        if (el) {
+          el.scrollIntoView({ block: 'center', behavior: 'instant' });
+          el.classList.add('ring-2', 'ring-[var(--color-accent)]', 'ring-offset-2', 'ring-offset-[#120d0b]');
+          setTimeout(() => {
+            el.classList.remove('ring-2', 'ring-[var(--color-accent)]', 'ring-offset-2', 'ring-offset-[#120d0b]');
+          }, 1500);
+          sessionStorage.removeItem('commis_last_recipe_id');
+          sessionStorage.removeItem('commis_scroll_y');
+          return true;
+        }
+      }
+
+      if (attempts >= maxAttempts) {
+        if (savedScrollY) {
+          window.scrollTo({ top: Number(savedScrollY), behavior: 'instant' });
+        }
+        sessionStorage.removeItem('commis_last_recipe_id');
+        sessionStorage.removeItem('commis_scroll_y');
+        return true;
+      }
+
+      return false;
+    };
+
+    if (!attemptScroll()) {
+      const interval = setInterval(() => {
+        if (attemptScroll()) {
+          clearInterval(interval);
+        }
+      }, 40);
+      return () => clearInterval(interval);
+    }
   }, []);
 
   const allTags = Array.from(
@@ -67,7 +149,9 @@ export function RecipeFilters({ recipes, recipeTagsMap }: RecipeFiltersProps) {
         .flat()
         .map((tag) => JSON.stringify({ id: tag.id, name: tag.name }))
     )
-  ).map((str) => JSON.parse(str) as Tag);
+  )
+    .map((str) => JSON.parse(str) as Tag)
+    .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
 
   const toggleTagFilter = (tagId: string) => {
     if (selectedTagFilters.includes(tagId)) {
@@ -79,19 +163,29 @@ export function RecipeFilters({ recipes, recipeTagsMap }: RecipeFiltersProps) {
 
   const filteredAndSortedRecipes = recipes
     .filter((recipe) => {
+      const recipeTags = recipeTagsMap.get(recipe.id) || [];
+
       if (selectedTagFilters.length > 0) {
-        const recipeTags = recipeTagsMap.get(recipe.id) || [];
         if (!selectedTagFilters.every((tagId) => recipeTags.some((tag) => tag.id === tagId))) {
           return false;
         }
       }
 
       if (!searchQuery.trim()) return true;
-      const query = searchQuery.toLowerCase();
-      return (
-        recipe.title.toLowerCase().includes(query) ||
-        recipe.ingredients.some((ing) => ing.text.toLowerCase().includes(query)) ||
-        recipe.steps.some((step) => step.text.toLowerCase().includes(query))
+
+      const terms = normalizeSearch(searchQuery).split(/\s+/).filter(Boolean);
+      if (terms.length === 0) return true;
+
+      const normTitle = normalizeSearch(recipe.title);
+      const normIngredients = (recipe.ingredients || []).map((ing) => normalizeSearch(ing.text));
+      const normSteps = (recipe.steps || []).map((step) => normalizeSearch(step.text));
+      const normTags = recipeTags.map((tag) => normalizeSearch(tag.name));
+
+      return terms.every((term) =>
+        normTitle.includes(term) ||
+        normIngredients.some((text) => text.includes(term)) ||
+        normSteps.some((text) => text.includes(term)) ||
+        normTags.some((text) => text.includes(term))
       );
     })
     .sort((a, b) => {
@@ -108,9 +202,11 @@ export function RecipeFilters({ recipes, recipeTagsMap }: RecipeFiltersProps) {
     const randomIndex = Math.floor(Math.random() * filteredAndSortedRecipes.length);
     const chosen = filteredAndSortedRecipes[randomIndex];
     if (chosen) {
-      window.location.href = `/recipes/${chosen.id}`;
+      router.push(`/recipes/${chosen.id}`);
     }
   };
+
+  const shouldShowFilters = isHeaderVisible || isSearchFocused;
 
   return (
     <>
@@ -129,11 +225,17 @@ export function RecipeFilters({ recipes, recipeTagsMap }: RecipeFiltersProps) {
         </p>
       </div>
 
-      {/* Frosted Glass Filter & Search Bar */}
-      <div className="sticky top-18 z-30 mb-6 transition-all duration-300">
+      {/* Frosted Glass Filter & Search Bar - Suit la barre du haut au scroll */}
+      <div
+        className="sticky top-[68px] z-30 mb-6 transition-transform duration-300 ease-out"
+        style={{
+          transform: shouldShowFilters ? 'translateY(0)' : 'translateY(calc(-100% - 80px))',
+          pointerEvents: shouldShowFilters ? 'auto' : 'none',
+        }}
+      >
         <div
           className={`flex flex-col gap-3 p-3 md:p-4 rounded-3xl transition-all duration-300 ${
-            isStuck ? 'glass-dock' : 'glass-panel'
+            isStuck ? 'glass-dock shadow-lg' : 'glass-panel'
           }`}
         >
           <div className="flex items-center gap-2">
@@ -146,6 +248,8 @@ export function RecipeFilters({ recipes, recipeTagsMap }: RecipeFiltersProps) {
                 placeholder="Rechercher une recette, un ingrédient..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => setIsSearchFocused(false)}
                 className="w-full pl-11 pr-9 py-2.5 rounded-2xl text-sm bg-white/[0.04] border border-[var(--color-border-light)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] transition-all"
               />
               {searchQuery && (
@@ -166,7 +270,7 @@ export function RecipeFilters({ recipes, recipeTagsMap }: RecipeFiltersProps) {
                 onClick={handleRandomRecipe}
                 title="Tirer une recette au hasard"
                 aria-label="Suggestion aléatoire"
-                className="h-10 px-3.5 rounded-2xl glass-pill text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-accent)] flex items-center gap-1.5 shrink-0 transition-all"
+                className="h-10 px-3.5 rounded-2xl glass-pill text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-accent)] flex items-center gap-1.5 shrink-0 transition-all cursor-pointer"
               >
                 <Shuffle size={15} strokeWidth={1.6} />
                 <span className="hidden sm:inline">Idée</span>
@@ -202,7 +306,7 @@ export function RecipeFilters({ recipes, recipeTagsMap }: RecipeFiltersProps) {
                 <button
                   type="button"
                   onClick={() => setSelectedTagFilters([])}
-                  className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                  className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer ${
                     selectedTagFilters.length === 0
                       ? 'bg-[var(--color-text-primary)] text-[var(--color-bg-primary)] shadow-sm'
                       : 'glass-pill text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
@@ -218,7 +322,7 @@ export function RecipeFilters({ recipes, recipeTagsMap }: RecipeFiltersProps) {
                       type="button"
                       key={tag.id}
                       onClick={() => toggleTagFilter(tag.id)}
-                      className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                      className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer ${
                         isSelected
                           ? 'bg-[var(--color-accent)] text-white shadow-sm'
                           : 'glass-pill text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-accent)]/50'
@@ -233,7 +337,7 @@ export function RecipeFilters({ recipes, recipeTagsMap }: RecipeFiltersProps) {
                   <button
                     type="button"
                     onClick={() => setShowAllTags(!showAllTags)}
-                    className="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium text-[var(--color-accent)] bg-[var(--color-accent-soft)] hover:opacity-90 transition-opacity"
+                    className="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium text-[var(--color-accent)] bg-[var(--color-accent-soft)] hover:opacity-90 transition-opacity cursor-pointer"
                   >
                     <span>{showAllTags ? 'Moins' : `+${allTags.length - 5}`}</span>
                     <ChevronDown
@@ -266,9 +370,20 @@ export function RecipeFilters({ recipes, recipeTagsMap }: RecipeFiltersProps) {
 
             return (
               <Link
+                id={`recipe-${recipe.id}`}
                 key={recipe.id}
                 href={`/recipes/${recipe.id}`}
-                className="group block glass-panel rounded-3xl overflow-hidden hover:border-[var(--color-accent)]/40 hover:-translate-y-0.5 transition-all duration-300"
+                onClick={() => {
+                  try {
+                    sessionStorage.setItem('commis_last_recipe_id', recipe.id);
+                    sessionStorage.setItem('commis_scroll_y', String(window.scrollY));
+                    sessionStorage.setItem(
+                      'commis_filters_state',
+                      JSON.stringify({ searchQuery, selectedTagFilters, sortBy })
+                    );
+                  } catch {}
+                }}
+                className="group block glass-panel rounded-3xl overflow-hidden hover:border-[var(--color-accent)]/40 hover:-translate-y-0.5 transition-all duration-300 scroll-mt-28"
               >
                 <div className="relative">
                   <RecipeCardImage src={recipe.image_url} alt={recipe.title} />

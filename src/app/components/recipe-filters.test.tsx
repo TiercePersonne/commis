@@ -1,8 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { RecipeFilters } from './recipe-filters';
 import type { Recipe } from '@/lib/schemas/recipe';
 import type { Tag } from '@/lib/schemas/tag';
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    back: vi.fn(),
+    replace: vi.fn(),
+  }),
+  usePathname: () => '/',
+}));
 
 const mockRecipes: Recipe[] = [
   {
@@ -12,18 +21,18 @@ const mockRecipes: Recipe[] = [
     rating: 5,
     created_at: '2023-01-01T00:00:00Z',
     updated_at: '',
-    ingredients: [],
+    ingredients: [{ text: '200g de chocolat noir', order: 0 }],
     steps: [],
     notes: '',
   },
   {
     id: '2',
     user_id: 'u1',
-    title: 'Recette B',
+    title: 'Crêpe Suzette',
     rating: 2,
     created_at: '2023-01-02T00:00:00Z',
     updated_at: '',
-    ingredients: [],
+    ingredients: [{ text: 'farine, lait, beurre', order: 0 }],
     steps: [],
     notes: '',
   },
@@ -46,8 +55,8 @@ describe('RecipeFilters sorting', () => {
   it('trie par défaut les plus récentes en premier', () => {
     render(<RecipeFilters recipes={mockRecipes} recipeTagsMap={mockTagsMap} />);
     const titles = screen.getAllByRole('heading', { level: 2 }).map(h => h.textContent);
-    // Plus récente 2023-01-03 -> Recette C (devient Recette c par toSentenceCase)
-    expect(titles).toEqual(['Recette c', 'Recette b', 'Recette a']);
+    // Plus récente 2023-01-03 -> Recette C
+    expect(titles).toEqual(['Recette c', 'Crêpe suzette', 'Recette a']);
   });
 
   it('peut trier par les mieux notées', () => {
@@ -57,18 +66,29 @@ describe('RecipeFilters sorting', () => {
     fireEvent.change(select, { target: { value: 'rating' } });
     
     const titles = screen.getAllByRole('heading', { level: 2 }).map(h => h.textContent);
-    // Notes: A (5), C (4), B (2) -> Deviennent Recette a, Recette c, Recette b
-    expect(titles).toEqual(['Recette a', 'Recette c', 'Recette b']);
+    // Notes: A (5), C (4), Suzette (2)
+    expect(titles).toEqual(['Recette a', 'Recette c', 'Crêpe suzette']);
   });
 
-  it('filtre les recettes par recherche textuelle', () => {
+  it('filtre les recettes par recherche textuelle insensible aux accents', () => {
     render(<RecipeFilters recipes={mockRecipes} recipeTagsMap={mockTagsMap} />);
     
     const searchInput = screen.getByPlaceholderText(/Rechercher une recette/i);
-    fireEvent.change(searchInput, { target: { value: 'Recette A' } });
+    // Rechercher sans accent "crepe" doit trouver "Crêpe Suzette"
+    fireEvent.change(searchInput, { target: { value: 'crepe' } });
+    
+    const titles = screen.getAllByRole('heading', { level: 2 }).map(h => h.textContent);
+    expect(titles).toEqual(['Crêpe suzette']);
+    expect(titles).not.toContain('Recette a');
+  });
+
+  it('filtre les recettes par ingrédient', () => {
+    render(<RecipeFilters recipes={mockRecipes} recipeTagsMap={mockTagsMap} />);
+    
+    const searchInput = screen.getByPlaceholderText(/Rechercher une recette/i);
+    fireEvent.change(searchInput, { target: { value: 'chocolat' } });
     
     const titles = screen.getAllByRole('heading', { level: 2 }).map(h => h.textContent);
     expect(titles).toEqual(['Recette a']);
-    expect(titles).not.toContain('Recette B');
   });
 });
